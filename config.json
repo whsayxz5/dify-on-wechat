@@ -1,0 +1,29 @@
+{
+    "channel_type": "gewechat",
+    "debug": false,
+    "dify_api_base": "http://121.40.50.245/v1",
+    "dify_api_key": "app-AfCKeSiLKpZdWNL4PXCLIlYM",
+    "dify_app_type": "chatbot",
+    "gewechat_app_id": "wx_1YbGfcxRj0sCEAg31DLXY",
+    "gewechat_base_url": "http://nas.667766.best:2531/v2/api",
+    "gewechat_callback_url": "http://121.40.50.245:9919/v2/api/callback/collect",
+    "gewechat_download_url": "http://nas.667766.best:2532/download",
+    "gewechat_token": "0f650530f8904ca5808f6511c232a8ee",
+    "group_chat_prefix": [
+        ""
+    ],
+    "group_name_white_list": [
+        "ALL_GROUP"
+    ],
+    "nick_name_black_list": ["羊毛哥 | VIP服务"],
+    "image_recognition": true,
+    "model": "dify",
+    "single_chat_prefix": [
+        ""
+    ],
+    "single_chat_reply_prefix": "",
+    "speech_recognition": true,
+    "text_to_voice": "dify",
+    "voice_reply_voice": true,
+    "voice_to_text": "dify"
+}

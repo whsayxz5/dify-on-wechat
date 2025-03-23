@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信消息发送</title>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        :root {
+            --primary-color: #1a73e8;
+            --hover-color: #1557b0;
+            --background-color: #f8f9fa;
+            --surface-color: #ffffff;
+            --text-color: #202124;
+            --border-color: #dadce0;
+        }
+        body {
+            font-family: 'Google Sans', Roboto, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+        .container {
+            background-color: var(--surface-color);
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+            width: calc(100% - 40px);
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+        h1 {
+            color: var(--text-color);
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 24px;
+            position: relative;
+        }
+        .selection-info {
+            font-size: 13px;
+            color: #5f6368;
+            margin-bottom: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        .select2-container {
+            width: 100% !important;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .select2-container--default .select2-selection--multiple {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            min-height: 36px;
+            min-width: 100%;
+            padding: 2px 4px;
+            transition: all 0.2s ease;
+        }
+        .select2-container--default.select2-container--focus .select2-selection--multiple {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #e8f0fe;
+            border: 1px solid #d2e3fc;
+            color: var(--primary-color);
+            border-radius: 16px;
+            padding: 2px 20px 2px 8px;
+            margin: 2px;
+            font-size: 13px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        
+
+        
+
+        
+        
+
+        
+
+        .select2-selection__choice__remove:hover {
+            background: rgba(0,0,0,0.15);
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            margin-right: 2px;
+            color: var(--primary-color);
+            vertical-align: middle;
+            padding: 2px;
+        }
+        .select2-container--default .select2-results__option {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: #f1f3f4;
+            color: var(--text-color);
+        }
+        .select2-container--default .select2-results__option[aria-selected=true] {
+            background-color: #e8f0fe;
+            color: var(--primary-color);
+        }
+        .select2-container--default .select2-search--inline .select2-search__field {
+            margin-top: 3px;
+            font-size: 14px;
+        }
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.15s ease;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
+        }
+        .select-actions {
+            margin-bottom: 12px;
+            display: flex;
+            gap: 8px;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0 24px;
+            height: 36px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.15s ease;
+        }
+        button:hover {
+            background-color: var(--hover-color);
+        }
+        .select-actions button {
+            background-color: #f1f3f4;
+            color: var(--text-color);
+            padding: 0 16px;
+            height: 32px;
+        }
+        .select-actions button:hover {
+            background-color: #e8eaed;
+        }
+        .status {
+            margin-top: 16px;
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .success {
+            background-color: #e6f4ea;
+            color: #1e8e3e;
+        }
+        .error {
+            background-color: #fce8e6;
+            color: #d93025;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>微信消息发送</h1>
+        <form id="messageForm">
+            <div class="form-group">
+                <label for="receiverName">微信好友</label>
+                <div class="selection-info">已选择 0 项</div>
+                <div class="select-actions">
+                    <button type="button" class="select-all" data-target="receiverName">全选</button>
+                    <button type="button" class="deselect-all" data-target="receiverName">全不选</button>
+                </div>
+                <select id="receiverName" multiple>
+                    <option value="所有人">所有人</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="groupName">微信群聊</label>
+                <div class="selection-info">已选择 0 项</div>
+                <div class="select-actions">
+                    <button type="button" class="select-all" data-target="groupName">全选</button>
+                    <button type="button" class="deselect-all" data-target="groupName">全不选</button>
+                </div>
+                <select id="groupName" multiple>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="message">消息内容</label>
+                <textarea id="message" required></textarea>
+            </div>
+            <button type="submit">发送消息</button>
+        </form>
+        <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // 初始化Select2并按拼音排序
+            function initSelect2WithPinyin(elementId) {
+                $(elementId).select2({
+                    placeholder: '请输入搜索...',
+                    allowClear: true,
+                    multiple: true,
+                    language: {
+                        noResults: function() {
+                            return "未找到匹配结果";
+                        }
+                    },
+                    sorter: function(data) {
+                        return data.sort(function(a, b) {
+                            return a.text.localeCompare(b.text, 'zh-Hans-CN');
+                        });
+                    }
+                });
+
+                // 更新选中数量显示
+                $(elementId).on('change', function() {
+                    const selectedCount = $(this).val() ? $(this).val().length : 0;
+                    const infoElement = $(this).closest('.form-group').find('.selection-info');
+                    infoElement.text(`已选择 ${selectedCount} 项`);
+                });
+            }
+
+            // 初始化两个选择框
+            initSelect2WithPinyin('#receiverName');
+            initSelect2WithPinyin('#groupName');
+
+            // 全选按钮点击事件
+            $('.select-all').click(function() {
+                const targetId = $(this).data('target');
+                const select = $(`#${targetId}`);
+                const options = select.find('option');
+                const values = options.map(function() {
+                    return $(this).val();
+                }).get();
+                select.val(values).trigger('change');
+            });
+
+            // 全不选按钮点击事件
+            $('.deselect-all').click(function() {
+                const targetId = $(this).data('target');
+                $(`#${targetId}`).val(null).trigger('change');
+            });
+        });
+
+        // 页面加载时获取联系人列表
+        async function fetchContacts() {
+            try {
+                const response = await fetch('/get_contacts');
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    const friendSelect = document.getElementById('receiverName');
+                    const groupSelect = document.getElementById('groupName');
+                    
+                    // 清空现有选项
+                    friendSelect.innerHTML = '<option value="所有人">所有人</option>';
+                    groupSelect.innerHTML = '';
+                    
+                    // 添加好友列表
+                    result.data.friends.forEach(friend => {
+                        const option = document.createElement('option');
+                        option.value = friend;
+                        option.textContent = friend;
+                        friendSelect.appendChild(option);
+                    });
+                    
+                    // 添加群列表
+                    result.data.groups.forEach(group => {
+                        const option = document.createElement('option');
+                        option.value = group;
+                        option.textContent = group;
+                        groupSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('获取联系人列表失败:', error);
+            }
+        }
+        
+        // 页面加载完成后获取联系人列表
+        document.addEventListener('DOMContentLoaded', fetchContacts);
+        
+        document.getElementById('messageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const receiverNames = Array.from(document.getElementById('receiverName').selectedOptions).map(option => option.value);
+            const groupNames = Array.from(document.getElementById('groupName').selectedOptions).map(option => option.value);
+            const message = document.getElementById('message').value;
+
+            const data = {
+                data_list: [{
+                    receiver_name: receiverNames,
+                    message: message,
+                    group_name: groupNames
+                }]
+            };
+
+            try {
+                const response = await fetch('/send_message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                const statusDiv = document.getElementById('status');
+                statusDiv.style.display = 'block';
+                
+                if (response.ok) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = result.message;
+                    document.getElementById('message').value = '';
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = result.message || '发送失败';
+                }
+            } catch (error) {
+                const statusDiv = document.getElementById('status');
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '发送请求失败：' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>

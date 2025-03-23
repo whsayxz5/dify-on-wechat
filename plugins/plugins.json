@@ -1,0 +1,60 @@
+{
+    "plugins": {
+        "Godcmd": {
+            "enabled": true,
+            "priority": 999
+        },
+        "Keyword": {
+            "enabled": false,
+            "priority": 900
+        },
+        "Autoreply": {
+            "enabled": true,
+            "priority": 900
+        },
+        "send_msg_ipad": {
+            "enabled": true,
+            "priority": 669
+        },
+        "Banwords": {
+            "enabled": true,
+            "priority": 100
+        },
+        "linkai": {
+            "enabled": false,
+            "priority": 99
+        },
+        "JinaSum": {
+            "enabled": false,
+            "priority": 10
+        },
+        "tool": {
+            "enabled": false,
+            "priority": 0
+        },
+        "Role": {
+            "enabled": false,
+            "priority": 0
+        },
+        "Dungeon": {
+            "enabled": false,
+            "priority": 0
+        },
+        "CustomDifyApp": {
+            "enabled": true,
+            "priority": 0
+        },
+        "BDunit": {
+            "enabled": false,
+            "priority": 0
+        },
+        "Hello": {
+            "enabled": true,
+            "priority": -1
+        },
+        "Finish": {
+            "enabled": false,
+            "priority": -999
+        }
+    }
+}

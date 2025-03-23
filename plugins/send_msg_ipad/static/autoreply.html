@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动回复配置</title>
+    <style>
+        :root {
+            --primary-color: #007AFF;
+            --danger-color: #FF3B30;
+            --background-color: #F5F5F7;
+            --surface-color: #FFFFFF;
+            --text-color: #1C1C1E;
+            --secondary-text: #8E8E93;
+            --border-color: rgba(60, 60, 67, 0.1);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+        .container {
+            background-color: var(--surface-color);
+
+            padding: 32px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 32px;
+            position: relative;
+        }
+        .button-container {
+            display: flex;
+            justify-content: flex-start;
+            gap: 16px;
+            margin-top: 32px;
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 24px;
+            min-width: 120px;
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            background-color: #0066CC;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: var(--text-color);
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+        .rules-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .rule-item {
+            background: var(--surface-color);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .rule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            cursor: pointer;
+        }
+        .rule-title {
+            font-weight: 500;
+            font-size: 16px;
+            margin: 0;
+        }
+        .rule-preview {
+            color: var(--secondary-text);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        .rule-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .rule-content {
+            padding: 0 16px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .rule-content.expanded {
+            padding: 16px;
+            max-height: 1000px;
+            border-top: 1px solid var(--border-color);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.8);
+            transition: all 0.2s ease;
+        }
+        input[type="text"]:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            margin: 8px;
+            min-width: 120px;
+        }
+        .btn-primary:hover {
+            background-color: #0066CC;
+        }
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #DC3545;
+        }
+        .btn-edit {
+            background-color: transparent;
+            color: var(--primary-color);
+        }
+        .btn-edit:hover {
+            background-color: rgba(0, 122, 255, 0.1);
+        }
+        .keywords-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .keyword-tag {
+            background-color: rgba(0, 122, 255, 0.1);
+            color: var(--primary-color);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .keyword-tag button {
+            padding: 0;
+            background: none;
+            color: var(--primary-color);
+            font-size: 18px;
+            opacity: 0.7;
+        }
+        .keyword-tag button:hover {
+            opacity: 1;
+        }
+        .add-keyword {
+            display: flex;
+            gap: 8px;
+        }
+        .add-keyword input {
+            flex: 1;
+        }
+        .status {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .success {
+            background-color: #E5FFF3;
+            color: #34C759;
+        }
+        .error {
+            background-color: #FFE5E5;
+            color: var(--danger-color);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>自动回复配置</h1>
+        <div class="button-group" style="margin-bottom: 16px;">
+            <button class="btn-primary" onclick="downloadTemplate()">下载模板</button>
+            <button class="btn-primary" onclick="importConfig()">导入配置</button>
+            <button class="btn-primary" onclick="exportConfig()">导出配置</button>
+            <input type="file" id="fileInput" accept=".csv" style="display: none;" onchange="handleFileSelect(event)">
+        </div>
+        <div id="rules-list" class="rules-list"></div>
+        <button class="btn-primary" onclick="addNewRule()">添加新规则</button>
+        <button class="btn-primary" onclick="saveConfig()" style="margin-left: 8px;">保存配置</button>
+        <div id="status" class="status"></div>
+    </div>
+
+    <template id="rule-template">
+        <div class="rule-item">
+            <div class="rule-header">
+                <div>
+                    <h3 class="rule-title"></h3>
+                    <div class="rule-preview"></div>
+                </div>
+                <div class="rule-actions">
+                    <button class="btn-edit" onclick="toggleRule(this)">编辑</button>
+                    <button class="btn-danger" onclick="deleteRule(this)">删除</button>
+                </div>
+            </div>
+            <div class="rule-content">
+                <div class="form-group">
+                    <label>规则名称</label>
+                    <input type="text" class="rule-name" placeholder="输入规则名称" required>
+                </div>
+                <div class="form-group">
+                    <label>关键词</label>
+                    <div class="keywords-container"></div>
+                    <div class="add-keyword">
+                        <input type="text" class="keyword-input" placeholder="输入关键词">
+                        <button class="btn-primary" onclick="addKeyword(this)">添加</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>匹配类型</label>
+                    <select class="match-type">
+                        <option value="exact">精确匹配</option>
+                        <option value="contains">模糊匹配</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>回复内容</label>
+                    <textarea class="reply" placeholder="输入回复内容"></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        let config = { keyword: {} };
+
+        async function fetchConfig() {
+            try {
+                const response = await fetch('/get_autoreply_config');
+                const result = await response.json();
+                if (result.status === 'success') {
+                    config = result.data;
+                    renderRules();
+                }
+            } catch (error) {
+                showStatus('获取配置失败: ' + error.message, false);
+            }
+        }
+
+        function renderRules() {
+            const rulesList = document.getElementById('rules-list');
+            rulesList.innerHTML = '';
+            
+            for (const [ruleName, ruleData] of Object.entries(config.keyword)) {
+                const ruleElement = createRuleElement(ruleName, ruleData);
+                rulesList.appendChild(ruleElement);
+            }
+        }
+
+        function createRuleElement(ruleName, ruleData) {
+            const template = document.getElementById('rule-template');
+            const ruleElement = template.content.cloneNode(true);
+            const container = ruleElement.querySelector('.rule-item');
+
+            container.querySelector('.rule-title').textContent = ruleName;
+            container.querySelector('.rule-preview').textContent = 
+                `${ruleData.keywords.join(', ')} | ${ruleData.match_type === 'exact' ? '精确匹配' : '模糊匹配'}`;
+            
+            container.querySelector('.rule-name').value = ruleName;
+            container.querySelector('.match-type').value = ruleData.match_type;
+
+            const keywordsContainer = container.querySelector('.keywords-container');
+            ruleData.keywords.forEach(keyword => {
+                addKeywordTag(keywordsContainer, keyword);
+            });
+
+            const reply = Array.isArray(ruleData.reply) ? ruleData.reply.join('\n') : ruleData.reply;
+            container.querySelector('.reply').value = reply;
+
+            return container;
+        }
+
+        function toggleRule(button) {
+            const ruleItem = button.closest('.rule-item');
+            const content = ruleItem.querySelector('.rule-content');
+            content.classList.toggle('expanded');
+        }
+
+        function addKeywordTag(container, keyword) {
+            const tag = document.createElement('div');
+            tag.className = 'keyword-tag';
+            tag.innerHTML = `
+                ${keyword}
+                <button onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(tag);
+        }
+
+        function addKeyword(button) {
+            const container = button.closest('.form-group');
+            const input = container.querySelector('.keyword-input');
+            const keyword = input.value.trim();
+
+            if (keyword) {
+                addKeywordTag(container.querySelector('.keywords-container'), keyword);
+                input.value = '';
+            }
+        }
+
+        function addNewRule() {
+            const template = document.getElementById('rule-template');
+            const ruleElement = template.content.cloneNode(true);
+            const container = ruleElement.querySelector('.rule-item');
+            container.querySelector('.rule-content').classList.add('expanded');
+            document.getElementById('rules-list').appendChild(container);
+        }
+
+        function deleteRule(button) {
+            button.closest('.rule-item').remove();
+        }
+
+        function showStatus(message, isSuccess) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${isSuccess ? 'success' : 'error'}`;
+            statusDiv.style.display = 'block';
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        async function saveConfig() {
+            const newConfig = { keyword: {} };
+            const rules = document.querySelectorAll('.rule-item');
+
+            rules.forEach(rule => {
+                const ruleName = rule.querySelector('.rule-name').value.trim();
+                if (!ruleName) return;
+
+                const keywords = Array.from(rule.querySelectorAll('.keyword-tag'))
+                    .map(tag => tag.childNodes[0].textContent.trim());
+                const matchType = rule.querySelector('.match-type').value;
+                const reply = rule.querySelector('.reply').value.trim();
+
+                if (keywords.length > 0 && reply) {
+                    newConfig.keyword[ruleName] = {
+                        keywords: keywords,
+                        reply: reply,
+                        match_type: matchType
+                    };
+
+                    // 更新预览信息
+                    rule.querySelector('.rule-title').textContent = ruleName;
+                    rule.querySelector('.rule-preview').textContent = 
+                        `${keywords.join(', ')} | ${matchType === 'exact' ? '精确匹配' : '模糊匹配'}`;
+                }
+            });
+
+            try {
+                const response = await fetch('/update_autoreply_config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(newConfig)
+                });
+
+                const result = await response.json();
+                showStatus(result.message, result.status === 'success');
+
+                if (result.status === 'success') {
+                    config = newConfig;
+                }
+            } catch (error) {
+                showStatus('保存配置失败: ' + error.message, false);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchConfig);
+
+        function downloadTemplate() {
+            const template = 'Rule Name,Keywords,Match Type,Reply\n示例规则,"关键词1,关键词2",exact,回复内容';
+            const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'autoreply_template.csv';
+            link.click();
+        }
+
+        function exportConfig() {
+            let csvContent = 'Rule Name,Keywords,Match Type,Reply\n';
+            for (const [ruleName, ruleData] of Object.entries(config.keyword)) {
+                const keywords = ruleData.keywords.join(',');
+                const escapedReply = ruleData.reply.replace(/\n/g, '\\n').replace(/"/g, '\"');
+                const row = `"${ruleName}","${keywords}",${ruleData.match_type},"${escapedReply}"`;
+                csvContent += row + '\n';
+            }
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'autoreply_config.csv';
+            link.click();
+        }
+
+        function importConfig() {
+            document.getElementById('fileInput').click();
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const text = e.target.result;
+                        const lines = text.split('\n');
+                        const newConfig = { keyword: {} };
+                        
+                        for (let i = 1; i < lines.length; i++) {
+                            if (!lines[i].trim()) continue;
+                            
+                            // 使用CSV解析逻辑处理每一行
+                            let currentChar = '';
+                            let currentField = '';
+                            let fields = [];
+                            let inQuotes = false;
+                            
+                            for (let j = 0; j < lines[i].length; j++) {
+                                currentChar = lines[i][j];
+                                
+                                if (currentChar === '"') {
+                                    if (inQuotes && lines[i][j + 1] === '"') {
+                                        currentField += '"';
+                                        j++;
+                                    } else {
+                                        inQuotes = !inQuotes;
+                                    }
+                                } else if (currentChar === ',' && !inQuotes) {
+                                    fields.push(currentField);
+                                    currentField = '';
+                                } else {
+                                    currentField += currentChar;
+                                }
+                            }
+                            fields.push(currentField);
+                            
+                            const [ruleName, keywordsStr, matchType, reply] = fields.map(field => field.trim());
+                            if (ruleName && keywordsStr && matchType && reply) {
+                                const keywords = keywordsStr.split(',').map(k => k.trim());
+                                newConfig.keyword[ruleName] = {
+                                    keywords: keywords,
+                                    match_type: matchType,
+                                    reply: reply.replace(/\\n/g, '\n').replace(/\\"/g, '"')
+                                };
+                            }
+                        }
+                        
+                        config = newConfig;
+                        renderRules();
+                        showStatus('配置导入成功', true);
+                    } catch (error) {
+                        showStatus('配置导入失败：' + error.message, false);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "keyword": {
+    "精确匹配示例": {
+      "keywords": ["你好"],
+      "reply": "你好！很高兴见到你",
+      "match_type": "exact"
+    },
+    "模糊匹配示例": {
+      "keywords": ["天气"],
+      "reply": "今天天气真不错",
+      "match_type": "contains"
+    },
+    "多关键词共享回复": {
+      "keywords": ["早上好", "早安", "good morning"],
+      "reply": "早安！祝你今天心情愉快",
+      "match_type": "contains"
+    },
+    "单关键词多个回复": {
+      "keywords": ["帮助"],
+      "reply": [
+        "这是第一条帮助信息",
+        "这是第二条帮助信息",
+        "这是第三条帮助信息"
+      ],
+      "match_type": "exact"
+    },
+    "图片回复示例": {
+      "keywords": ["图片"],
+      "reply": "https://example.com/image.jpg",
+      "match_type": "contains"
+    },
+    "视频回复示例": {
+      "keywords": ["视频"],
+      "reply": "https://example.com/video.mp4",
+      "match_type": "contains"
+    },
+    "文件回复示例": {
+      "keywords": ["文档"],
+      "reply": "https://example.com/document.pdf",
+      "match_type": "contains"
+    },
+    "混合类型回复示例": {
+      "keywords": ["资料"],
+      "reply": [
+        "这是一份完整的资料包：",
+        "https://example.com/image.jpg",
+        "https://example.com/document.pdf",
+        "https://example.com/video.mp4"
+      ],
+      "match_type": "contains"
+    }
+  }
+}
