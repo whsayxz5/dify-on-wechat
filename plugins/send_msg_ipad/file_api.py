@@ -5,12 +5,61 @@ from common.log import logger
 import threading
 import os
 from common.tmp_dir import TmpDir
+from pathlib import Path
 
 app = Flask(__name__, static_folder='static')
 
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/autoreply')
+def autoreply():
+    return send_from_directory(app.static_folder, 'autoreply.html')
+
+@app.route('/get_autoreply_config', methods=['GET'])
+def get_autoreply_config():
+    try:
+        curdir = os.path.dirname(__file__)
+        config_path = os.path.join(Path(curdir).parent, 'autoreply', 'config.json')
+        
+        if not os.path.exists(config_path):
+            return jsonify({
+                'status': 'success',
+                'data': {'keyword': {}}
+            })
+            
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            
+        return jsonify({
+            'status': 'success',
+            'data': config
+        })
+    except Exception as e:
+        logger.error(f"获取自动回复配置失败: {str(e)}")
+        return jsonify({'status': 'error', 'message': '获取配置失败'}), 500
+
+@app.route('/update_autoreply_config', methods=['POST'])
+def update_autoreply_config():
+    try:
+        new_config = request.json
+        if not isinstance(new_config, dict) or 'keyword' not in new_config:
+            return jsonify({'status': 'error', 'message': '无效的配置格式'}), 400
+            
+        curdir = os.path.dirname(__file__)
+        config_path = os.path.join(Path(curdir).parent, 'autoreply', 'config.json')
+        
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(new_config, f, ensure_ascii=False, indent=2)
+            
+        return jsonify({
+            'status': 'success',
+            'message': '配置更新成功'
+        })
+    except Exception as e:
+        logger.error(f"更新自动回复配置失败: {str(e)}")
+        return jsonify({'status': 'error', 'message': '更新配置失败'}), 500
 
 @app.route('/get_contacts', methods=['GET'])
 def get_contacts():
