@@ -9,13 +9,14 @@ services:
     # tag为 latest 表示是最新的release镜像，相对稳定(个人没有精力全面测试)
     # tag为 arm64  表示镜像为arm64架构镜像，其他为amd64架构镜像
     
+    image: dify-on-wechat:latest
     # image: hanfangyuan/dify-on-wechat:latest # docker hub
     # image: hanfangyuan/dify-on-wechat:arm64  # docker hub arm64
-    image: registry.cn-hangzhou.aliyuncs.com/hanfangyuan/dify-on-wechat:latest # acr
+    # image: registry.cn-hangzhou.aliyuncs.com/hanfangyuan/dify-on-wechat:latest # acr
     # image: registry.cn-hangzhou.aliyuncs.com/hanfangyuan/dify-on-wechat:arm64 # acr arm64
     user: root
     restart: always
-    pull_policy: always
+    pull_policy: never
     container_name: dify-on-wechat
     security_opt:
       - seccomp:unconfined
@@ -63,3 +64,4 @@ services:
       # 注意环境变量配置优先级高于config.json配置
       - ../config.json:/app/config.json
       - ../plugins:/app/plugins
+      - ../web_ui.py:/app/web_ui.py
