@@ -538,6 +538,17 @@ def toggle_plugin(plugin_name, enable):
         return False
 
 # ================ 聊天管理相关 ================
+def retry_on_failure(func, max_retries=3):
+    """错误重试机制"""
+    for i in range(max_retries):
+        try:
+            return func()
+        except Exception as e:
+            if i == max_retries - 1:
+                raise e
+            logger.warning(f"操作失败,正在重试 ({i+1}/{max_retries}): {str(e)}")
+            time.sleep(1)
+
 def update_friend_list():
     """更新好友列表"""
     if conf().get("channel_type") != "gewechat":
@@ -585,31 +596,30 @@ def update_friend_list():
         global_update_status['friend_current'] = 0
         global_update_status['friend_updating'] = True
         
-        # 获取每个好友的详细信息
-        for i, friend_id in enumerate(friends):
-            # 更新进度
-            global_update_status['friend_current'] = i + 1
+        # 批量获取好友信息,每批20个(API限制)
+        batch_size = 20
+        for i in range(0, len(friends), batch_size):
+            batch_friends = friends[i:i + batch_size]
             
-            logger.info(f"获取好友信息 [{i+1}/{len(friends)}]: {friend_id}")
+            def get_batch_info():
+                return client.get_detail_info(app_id, batch_friends)
+            
             try:
-                info_json = client.get_detail_info(app_id, [friend_id])
+                info_json = retry_on_failure(get_batch_info)
                 if info_json.get("ret") == 200:
                     data_list = info_json.get("data", [])
-                    if data_list:
-                        friend_info = data_list[0]
+                    for friend_info in data_list:
                         if friend_info.get("nickName"):
                             friend_list.append(friend_info)
-                            logger.info(f"好友名称: {friend_info.get('nickName')}, 备注: {friend_info.get('remark', '无')}")
-                        else:
-                            logger.warning(f"好友 {friend_id} 无昵称，已跳过")
-                    else:
-                        logger.warning(f"好友 {friend_id} 返回数据为空")
                 else:
-                    logger.warning(f"获取好友 {friend_id} 详情失败: {info_json}")
+                    logger.warning(f"获取好友信息失败: {info_json}")
             except Exception as e:
-                logger.error(f"处理好友 {friend_id} 时出错: {e}")
-                # 继续处理下一个好友
+                logger.error(f"处理好友批次时出错: {e}")
                 continue
+            
+            # 更新进度
+            global_update_status['friend_current'] = min(i + batch_size, len(friends))
+            logger.info(f"已处理 {global_update_status['friend_current']}/{len(friends)} 个好友")
         
         # 保存到文件
         tmp_dir = TmpDir().path()
@@ -679,27 +689,27 @@ def update_group_list():
         global_update_status['group_current'] = 0
         global_update_status['group_updating'] = True
         
-        # 获取每个群聊的详细信息
+        # 获取每个群聊的详细信息(群组API只支持单个查询)
         for i, chatroom_id in enumerate(chatrooms):
-            # 更新进度
-            global_update_status['group_current'] = i + 1
+            def get_chatroom_info():
+                return client.get_chatroom_info(app_id, chatroom_id)
             
-            logger.info(f"获取群聊信息 [{i+1}/{len(chatrooms)}]: {chatroom_id}")
             try:
-                info_json = client.get_chatroom_info(app_id, chatroom_id)
+                info_json = retry_on_failure(get_chatroom_info)
                 if info_json.get("ret") == 200:
                     room_info = info_json["data"]
-                    if room_info.get("nickName"):  # 为空时可能是没修改初始群名或未保存到通讯录
+                    if room_info.get("nickName"):
                         chatroom_list.append(room_info)
-                        logger.info(f"群聊名称: {room_info.get('nickName')}")
-                    else:
-                        logger.warning(f"群聊 {chatroom_id} 无名称，已跳过")
                 else:
                     logger.warning(f"获取群聊 {chatroom_id} 详情失败: {info_json}")
             except Exception as e:
                 logger.error(f"处理群聊 {chatroom_id} 时出错: {e}")
-                # 继续处理下一个群聊
                 continue
+            
+            # 更新进度
+            global_update_status['group_current'] = i + 1
+            if (i + 1) % 10 == 0:  # 每10个群组记录一次进度
+                logger.info(f"已处理 {i + 1}/{len(chatrooms)} 个群组")
         
         # 保存到文件
         tmp_dir = TmpDir().path()
@@ -724,6 +734,12 @@ def update_group_list():
 
 def get_contacts():
     """获取联系人和群组列表，只读取现有文件，不触发更新"""
+    # 添加内存缓存
+    if hasattr(get_contacts, '_cache'):
+        cache_time, cached_data = get_contacts._cache
+        if time.time() - cache_time < 300:  # 5分钟缓存
+            return cached_data
+    
     tmp_dir = TmpDir().path()
     friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
     chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
@@ -758,7 +774,10 @@ def get_contacts():
     else:
         logger.info("群组详情文件不存在，返回空列表")
     
-    return friends, groups
+    # 更新缓存
+    result = (friends, groups)
+    get_contacts._cache = (time.time(), result)
+    return result
 
 def send_message(receiver_name, group_name, message):
     """发送消息到联系人或群组"""

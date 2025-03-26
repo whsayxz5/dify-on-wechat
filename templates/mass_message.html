@@ -78,18 +78,26 @@
                                     </div>
                                 </transition>
                                 
+                                <!-- 搜索状态 -->
+                                <transition name="fade">
+                                    <div v-if="isSearching" class="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-90 z-10">
+                                        <div class="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-2"></div>
+                                        <p class="text-sm text-gray-500">搜索中...</p>
+                                    </div>
+                                </transition>
+                                
                                 <!-- 空状态 -->
                                 <transition name="fade">
-                                    <div v-if="!loadingContacts && filteredFriends.length === 0" class="absolute inset-0 flex flex-col items-center justify-center bg-white">
+                                    <div v-if="!loadingContacts && !isSearching && filteredFriends.length === 0" class="absolute inset-0 flex flex-col items-center justify-center bg-white">
                                         <div class="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-2">
                                             <i class="fa-solid fa-user-slash text-xl"></i>
                                         </div>
-                                        <p class="text-sm text-gray-500">暂无联系人</p>
+                                        <p class="text-sm text-gray-500">[[searchTermFriends ? '未找到匹配的联系人' : '暂无联系人']]</p>
                                     </div>
                                 </transition>
                                 
                                 <!-- 联系人列表 -->
-                                <transition-group name="list" tag="div" v-if="!loadingContacts && filteredFriends.length > 0" class="divide-y divide-gray-100">
+                                <transition-group name="list" tag="div" v-if="!loadingContacts && !isSearching && filteredFriends.length > 0" class="divide-y divide-gray-100">
                                     <!-- 特殊选项: 所有人 -->
                                     <label class="flex items-center px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
                                         <div class="flex items-center h-5">
@@ -201,18 +209,26 @@
                                     </div>
                                 </transition>
                                 
+                                <!-- 搜索状态 -->
+                                <transition name="fade">
+                                    <div v-if="isSearching" class="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-90 z-10">
+                                        <div class="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-2"></div>
+                                        <p class="text-sm text-gray-500">搜索中...</p>
+                                    </div>
+                                </transition>
+                                
                                 <!-- 空状态 -->
                                 <transition name="fade">
-                                    <div v-if="!loadingContacts && filteredGroups.length === 0" class="absolute inset-0 flex flex-col items-center justify-center bg-white">
+                                    <div v-if="!loadingContacts && !isSearching && filteredGroups.length === 0" class="absolute inset-0 flex flex-col items-center justify-center bg-white">
                                         <div class="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-2">
                                             <i class="fa-solid fa-users-slash text-xl"></i>
                                         </div>
-                                        <p class="text-sm text-gray-500">暂无群组</p>
+                                        <p class="text-sm text-gray-500">[[searchTermGroups ? '未找到匹配的群组' : '暂无群组']]</p>
                                     </div>
                                 </transition>
                                 
                                 <!-- 群组列表 -->
-                                <transition-group name="list" tag="div" v-if="!loadingContacts && filteredGroups.length > 0" class="divide-y divide-gray-100">
+                                <transition-group name="list" tag="div" v-if="!loadingContacts && !isSearching && filteredGroups.length > 0" class="divide-y divide-gray-100">
                                     <!-- 群组项 -->
                                     <label v-for="group in filteredGroups" :key="group" 
                                            class="flex items-center px-3 py-2.5 cursor-pointer hover:bg-green-50 transition-colors">
@@ -449,6 +465,19 @@
         // 设置 axios 默认配置，确保发送凭证（cookie）
         axios.defaults.withCredentials = true;
         
+        // 添加防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
         const MassSendApp = {
             delimiters: ['[[', ']]'],
             data() {
@@ -475,6 +504,10 @@
                     loadingContacts: true,       // 加载状态
                     loadError: null,             // 加载错误
                     isMobile: window.innerWidth < 1024, // 是否为移动设备
+                    filteredFriends: [],         // 过滤后的好友列表
+                    filteredGroups: [],          // 过滤后的群组列表
+                    isSearching: false,          // 是否正在搜索
+                    searchTimeout: null,         // 搜索超时计时器
                 }
             },
             mounted() {
@@ -485,11 +518,34 @@
                 window.addEventListener('resize', this.onResize);
                 // 初始化检查设备类型
                 this.checkDeviceType();
+                
+                // 创建防抖的搜索函数
+                this.debouncedSearchFriends = debounce(this.performSearchFriends, 300);
+                this.debouncedSearchGroups = debounce(this.performSearchGroups, 300);
             },
             beforeUnmount() {
                 // 移除事件监听
                 document.removeEventListener('keydown', this.handleKeyDown);
                 window.removeEventListener('resize', this.onResize);
+                // 清除搜索超时
+                if (this.searchTimeout) {
+                    clearTimeout(this.searchTimeout);
+                }
+            },
+            watch: {
+                // 监听搜索词变化
+                searchTermFriends: {
+                    handler(newVal) {
+                        this.isSearching = true;
+                        this.debouncedSearchFriends(newVal);
+                    }
+                },
+                searchTermGroups: {
+                    handler(newVal) {
+                        this.isSearching = true;
+                        this.debouncedSearchGroups(newVal);
+                    }
+                }
             },
             computed: {
                 // 过滤搜索的好友列表
@@ -620,6 +676,9 @@
                             if (response.data.success) {
                                 this.friends = response.data.data.friends;
                                 this.groups = response.data.data.groups;
+                                // 初始化过滤列表
+                                this.filteredFriends = this.friends;
+                                this.filteredGroups = this.groups;
                                 
                                 // 如果API返回了需要更新的提示但不显示警告
                                 if (response.data.needs_update) {
@@ -746,7 +805,37 @@
                     this.toastTimer = setTimeout(() => {
                         this.showToast = false;
                     }, 3000);
-                }
+                },
+                
+                // 执行好友搜索
+                performSearchFriends(term) {
+                    if (!term) {
+                        this.filteredFriends = this.friends;
+                        this.isSearching = false;
+                        return;
+                    }
+                    
+                    const searchTerm = term.toLowerCase();
+                    this.filteredFriends = this.friends.filter(friend => 
+                        friend.toLowerCase().includes(searchTerm)
+                    );
+                    this.isSearching = false;
+                },
+                
+                // 执行群组搜索
+                performSearchGroups(term) {
+                    if (!term) {
+                        this.filteredGroups = this.groups;
+                        this.isSearching = false;
+                        return;
+                    }
+                    
+                    const searchTerm = term.toLowerCase();
+                    this.filteredGroups = this.groups.filter(group => 
+                        group.toLowerCase().includes(searchTerm)
+                    );
+                    this.isSearching = false;
+                },
             }
         };
         Vue.createApp(MassSendApp).mount('#massSendApp');

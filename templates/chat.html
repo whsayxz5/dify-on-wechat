@@ -887,33 +887,32 @@
                     try {
                         // 准备数据
                         const data = {
-                            data_list: [{
-                                receiver_name: this.currentChat.type === 'friend' ? [this.currentChat.name] : [],
-                                group_name: this.currentChat.type === 'group' ? [this.currentChat.name] : [],
-                                message: messageText
-                            }]
+                            receiver_names: this.currentChat.type === 'friend' ? [this.currentChat.name] : [],
+                            group_names: this.currentChat.type === 'group' ? [this.currentChat.name] : [],
+                            content: messageText
                         };
                         
                         // 发送请求
-                        const response = await fetch('/api/send_message', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(data)
-                        });
+                        const response = await axios.post('/api/direct_send_message', data, { withCredentials: true });
                         
-                        const result = await response.json();
-                        
-                        if (result.status === 'success') {
+                        if (response.data.success) {
                             this.showToastMessage('消息发送成功', true);
                         } else {
-                            this.showToastMessage('消息发送失败：' + (result.message || '未知错误'), false);
-                            console.error('发送消息失败:', result);
+                            this.showToastMessage('消息发送失败：' + (response.data.message || '未知错误'), false);
+                            console.error('发送消息失败:', response.data);
                         }
                     } catch (error) {
                         console.error('发送消息失败:', error);
-                        this.showToastMessage('发送消息失败', false);
+                        // 检查是否重定向到登录页面
+                        if (error.response && error.response.status === 302) {
+                            this.showToastMessage('登录会话已过期，请重新登录', false);
+                            // 2秒后重定向到登录页面
+                            setTimeout(() => {
+                                window.location.href = '/login';
+                            }, 2000);
+                        } else {
+                            this.showToastMessage('发送失败: ' + (error.response?.data?.message || error.message || '未知错误'), false);
+                        }
                     } finally {
                         this.sending = false;
                         this.$nextTick(() => {
