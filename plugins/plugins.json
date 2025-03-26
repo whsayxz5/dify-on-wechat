@@ -17,7 +17,7 @@
             "priority": 669
         },
         "Banwords": {
-            "enabled": false,
+            "enabled": true,
             "priority": 100
         },
         "linkai": {
@@ -26,11 +26,7 @@
         },
         "JinaSum": {
             "enabled": false,
-            "priority": 10
-        },
-        "tool": {
-            "enabled": false,
-            "priority": 0
+            "priority": 11
         },
         "Role": {
             "enabled": false,
@@ -51,10 +47,6 @@
         "Hello": {
             "enabled": true,
             "priority": -1
-        },
-        "Finish": {
-            "enabled": false,
-            "priority": -999
         }
     }
 }

@@ -239,6 +239,18 @@ class PluginManager:
             rawname = self.plugins[name].name
             self.pconf["plugins"][rawname]["enabled"] = False
             self.save_config()
+            
+            # 移除实例（如果存在）
+            if name in self.instances:
+                # 清理事件监听器
+                for event in self.listening_plugins:
+                    if name in self.listening_plugins[event]:
+                        self.listening_plugins[event].remove(name)
+                
+                # 移除实例
+                logger.info(f"从实例中移除插件 {name}")
+                del self.instances[name]
+            
             return True
         return True
 

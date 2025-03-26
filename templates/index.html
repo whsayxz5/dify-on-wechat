@@ -57,9 +57,6 @@
                     <button @click="restartService" class="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" :disabled="processing" title="重启服务">
                         <i class="fa-solid fa-refresh"></i>
                     </button>
-                    <button @click="restartPanel" class="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" :disabled="processing" title="重启面板">
-                        <i class="fa-solid fa-power-off"></i>
-                    </button>
                     <button v-if="status.is_online" @click="logoutGewechat" class="p-2 text-gray-500 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors" :disabled="processing" title="退出登录">
                         <i class="fa-solid fa-sign-out-alt"></i>
                     </button>
@@ -294,69 +291,6 @@
         </div>
     </div>
     
-    <!-- 确认重启面板对话框 -->
-    <div v-if="showRestartPanelConfirm" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <!-- 背景遮罩 -->
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showRestartPanelConfirm = false"></div>
-            
-            <!-- 模态框内容 -->
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <div class="sm:flex sm:items-start">
-                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                            <i class="fa-solid fa-power-off text-blue-600"></i>
-                        </div>
-                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">确认重启面板</h3>
-                            <div class="mt-2">
-                                <p class="text-sm text-gray-500">确定要重启管理面板吗？重启过程中会暂时断开连接，但不会影响微信服务的运行。</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <button type="button" @click="confirmRestartPanel" :disabled="processing" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
-                        确认重启
-                    </button>
-                    <button type="button" @click="showRestartPanelConfirm = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-                        取消
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 重启进度对话框 -->
-    <div v-if="showRestartProgress" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <!-- 背景遮罩 -->
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-            
-            <!-- 模态框内容 -->
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                    <div class="sm:flex sm:flex-col sm:items-center sm:justify-center">
-                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 sm:mx-0 sm:h-14 sm:w-14 mb-4">
-                            <div class="animate-spin rounded-full h-10 w-10 border-4 border-primary-200 border-t-primary-600"></div>
-                        </div>
-                        <div class="mt-3 text-center">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">重启进行中</h3>
-                            <div class="mt-2">
-                                <p class="text-sm text-gray-500 mb-3">面板正在重启中，请稍候...</p>
-                                <p v-if="restartCountdown > 0" class="text-sm text-gray-500">将在 <span class="font-semibold text-primary-600">{{ restartCountdown }}</span> 秒后自动尝试重新连接</p>
-                                
-                                <div v-if="restartCountdown > 0" class="mt-4 mx-auto w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                    <div class="bg-primary-600 h-2 rounded-full" :style="{width: ((15-restartCountdown)/15*100) + '%'}"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <!-- 提示框 -->
     <div id="toast" 
          class="fixed bottom-4 right-4 flex items-center p-4 space-x-4 w-full max-w-xs text-gray-500 bg-white rounded-lg divide-x divide-gray-200 shadow-md space-x transition-opacity duration-300 opacity-0 pointer-events-none transform translate-y-6">
@@ -382,12 +316,7 @@
                         channel_type: ''
                     },
                     showRestartConfirm: false,
-                    showRestartPanelConfirm: false,
                     showLogoutConfirm: false,
-                    showRestartProgress: false,
-                    restartCountdown: 0,
-                    restartTimer: null,
-                    reconnectAttempts: 0,
                     processing: false
                 }
             },
@@ -409,9 +338,6 @@
                 restartService() {
                     this.showRestartConfirm = true;
                 },
-                restartPanel() {
-                    this.showRestartPanelConfirm = true;
-                },
                 confirmRestart() {
                     this.processing = true;
                     axios.post('/api/restart')
@@ -432,69 +358,6 @@
                         })
                         .finally(() => {
                             this.processing = false;
-                        });
-                },
-                confirmRestartPanel() {
-                    this.processing = true;
-                    axios.post('/api/restart_panel')
-                        .then(response => {
-                            this.showRestartPanelConfirm = false;
-                            if (response.data.success) {
-                                this.showRestartProgress = true;
-                                this.startRestartCountdown();
-                            } else {
-                                this.showToast('重启失败: ' + response.data.message, 'error');
-                                this.processing = false;
-                            }
-                        })
-                        .catch(error => {
-                            console.error('重启失败:', error);
-                            this.showToast('重启失败', 'error');
-                            this.processing = false;
-                        });
-                },
-                startRestartCountdown() {
-                    this.restartCountdown = 15; // 15秒倒计时
-                    this.reconnectAttempts = 0;
-                    
-                    // 清除可能存在的旧计时器
-                    if (this.restartTimer) {
-                        clearInterval(this.restartTimer);
-                    }
-                    
-                    this.restartTimer = setInterval(() => {
-                        this.restartCountdown--;
-                        
-                        if (this.restartCountdown <= 0) {
-                            clearInterval(this.restartTimer);
-                            this.attemptReconnect();
-                        }
-                    }, 1000);
-                },
-                attemptReconnect() {
-                    this.reconnectAttempts++;
-                    console.log(`尝试重新连接 (${this.reconnectAttempts}/5)...`);
-                    
-                    axios.get('/api/status')
-                        .then(response => {
-                            // 连接成功，重新加载页面
-                            console.log('重新连接成功，刷新页面');
-                            this.showRestartProgress = false;
-                            this.processing = false;
-                            window.location.reload();
-                        })
-                        .catch(error => {
-                            console.error('重新连接失败:', error);
-                            if (this.reconnectAttempts < 5) {
-                                // 如果失败且尝试次数小于5，继续尝试
-                                this.restartCountdown = 5; // 5秒后再次尝试
-                                this.startRestartCountdown();
-                            } else {
-                                // 5次尝试后仍失败，提示用户手动刷新
-                                this.showRestartProgress = false;
-                                this.processing = false;
-                                this.showToast('重启面板可能需要更长时间，请手动刷新页面', 'warning');
-                            }
                         });
                 },
                 logoutGewechat() {
