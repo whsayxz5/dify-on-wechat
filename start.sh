@@ -60,8 +60,10 @@ cleanup_ports() {
     fi
 }
 
-# 检查本地Python环境
-check_python_env() {
+# 安装依赖函数
+install_dependencies() {
+    local force=$1
+    
     print_blue "检查Python环境..."
     if ! command -v python3 &> /dev/null; then
         print_red "错误: 未检测到 Python3。请先安装 Python3: https://www.python.org/downloads/"
@@ -70,40 +72,56 @@ check_python_env() {
 
     # 检查依赖
     print_blue "检查项目依赖..."
-    if ! python3 -c "import psutil" &> /dev/null; then
-        print_yellow "安装必要的依赖 psutil..."
-        pip3 install psutil
-    fi
-
+    
+    # 安装基础依赖
+    print_yellow "安装必要的依赖 psutil..."
+    pip3 install psutil
+    
     # 检查其他依赖
     if [ ! -f "requirements.txt" ]; then
         print_red "错误: 未找到 requirements.txt 文件"
         exit 1
     fi
-
-    # 检查是否已安装依赖
-    if ! python3 -c "import flask" &> /dev/null; then
+    
+    # 强制重新安装依赖或检查是否已安装
+    if [ "$force" = "true" ]; then
+        print_yellow "强制重新安装所有依赖..."
+        pip3 install -r requirements.txt --upgrade
+        if [ -f "requirements-optional.txt" ]; then
+            pip3 install -r requirements-optional.txt --upgrade
+        fi
+    elif ! python3 -c "import flask" &> /dev/null; then
         print_yellow "安装项目依赖..."
         pip3 install -r requirements.txt
         if [ -f "requirements-optional.txt" ]; then
             pip3 install -r requirements-optional.txt
         fi
+    else
+        print_green "依赖检查完成"
     fi
+}
+
+# 检查本地Python环境
+check_python_env() {
+    local force=$1
+    install_dependencies "$force"
 }
 
 # 前台启动函数
 start_local_foreground() {
+    local force=$1
     print_green "前台模式启动 dify-on-wechat 服务..."
     cleanup_ports
-    check_python_env
+    check_python_env "$force"
     python3 admin_ui.py
 }
 
 # 后台启动函数
 start_local_background() {
+    local force=$1
     print_green "后台模式启动 dify-on-wechat 服务..."
     cleanup_ports
-    check_python_env
+    check_python_env "$force"
     nohup python3 admin_ui.py > logs/admin_ui.log 2>&1 &
     print_green "服务已在后台启动，管理面板地址: http://localhost:7860"
     print_green "查看日志: tail -f logs/admin_ui.log"
@@ -235,6 +253,21 @@ else
     print_yellow "未检测到Docker，Docker启动模式将不可用"
 fi
 
+# 强制重装依赖选项
+print_blue "是否需要强制重新安装所有依赖？(适用于首次安装或出现依赖问题时)"
+echo "1. 不需要 [默认]"
+echo "2. 需要"
+echo ""
+read -p "请选择 [1/2]: " reinstall_deps
+reinstall_deps=${reinstall_deps:-1}
+
+if [ "$reinstall_deps" = "2" ]; then
+    FORCE_REINSTALL=true
+    print_yellow "将强制重新安装所有依赖..."
+else
+    FORCE_REINSTALL=false
+fi
+
 # 主菜单
 print_blue "请选择启动模式:"
 echo "1. 本地启动 (前台运行) [默认]"
@@ -253,10 +286,10 @@ choice=${choice:-1}
 
 case $choice in
     1)
-        start_local_foreground
+        start_local_foreground "$FORCE_REINSTALL"
         ;;
     2)
-        start_local_background
+        start_local_background "$FORCE_REINSTALL"
         ;;
     3)
         if [ $DOCKER_AVAILABLE -eq 1 ]; then
