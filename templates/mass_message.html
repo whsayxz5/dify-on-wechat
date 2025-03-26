@@ -1,0 +1,852 @@
+{% extends "base.html" %}
+
+{% block title %}群发消息 - 卡盟微信管理后台{% endblock %}
+
+{% block page_title %}群发消息{% endblock %}
+
+{% block content %}
+<div id="massSendApp" class="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
+    <!-- 主布局容器 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 左侧面板：联系人和群组选择 -->
+        <div class="space-y-6">
+            <!-- 微信好友卡片 -->
+            <transition name="fade" appear>
+                <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 transform transition duration-300 hover:shadow-md">
+                    <!-- 标题栏 -->
+                    <div class="flex justify-between items-center px-5 py-4 border-b border-gray-100 bg-gray-50">
+                        <h3 class="text-base font-medium text-gray-900 flex items-center">
+                            <i class="fa-solid fa-user text-primary-600 mr-2"></i>
+                            微信好友
+                        </h3>
+                        <div class="flex items-center space-x-2">
+                            <!-- 搜索框 -->
+                            <div v-if="!enableManualFriends" class="relative">
+                                <input type="text" 
+                                    placeholder="搜索好友..." 
+                                    v-model="searchTermFriends"
+                                    class="w-32 sm:w-40 pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                            </div>
+                            
+                            <!-- 切换按钮 -->
+                            <div class="inline-flex rounded-md shadow-sm" role="group">
+                                <button @click="enableManualFriends = false" 
+                                        :class="{'bg-primary-600 text-white': !enableManualFriends, 'bg-white text-gray-700': enableManualFriends}"
+                                        class="px-2.5 py-1.5 text-xs font-medium rounded-l-lg border border-gray-300 focus:z-10 focus:ring-2 focus:ring-primary-500 transition-colors">
+                                    <i class="fa-solid fa-list-ul mr-1"></i>
+                                    列表
+                                </button>
+                                <button @click="enableManualFriends = true" 
+                                        :class="{'bg-primary-600 text-white': enableManualFriends, 'bg-white text-gray-700': !enableManualFriends}"
+                                        class="px-2.5 py-1.5 text-xs font-medium rounded-r-lg border border-gray-300 focus:z-10 focus:ring-2 focus:ring-primary-500 transition-colors">
+                                    <i class="fa-solid fa-pen-to-square mr-1"></i>
+                                    手动
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 内容区域 -->
+                    <div class="p-4 bg-white">
+                        <!-- 列表选择模式 -->
+                        <div v-if="!enableManualFriends" class="space-y-3">
+                            <!-- 选择操作栏 -->
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="text-xs text-gray-600 flex items-center">
+                                    已选择 <span class="inline-flex items-center justify-center ml-1.5 w-5 h-5 text-xs font-medium rounded-full bg-primary-100 text-primary-800">[[selectedFriends.length]]</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="selectAllFriends" 
+                                            class="text-xs px-2 py-1 text-primary-700 hover:bg-primary-50 rounded transition flex items-center">
+                                        <i class="fa-solid fa-check-double mr-1"></i> 全选
+                                    </button>
+                                    <button @click="deselectAllFriends" 
+                                            class="text-xs px-2 py-1 text-gray-700 hover:bg-gray-50 rounded transition flex items-center">
+                                        <i class="fa-solid fa-xmark mr-1"></i> 清除
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 联系人列表 -->
+                            <div class="border border-gray-200 rounded-lg h-[280px] overflow-y-auto relative bg-white">
+                                <!-- 加载状态 -->
+                                <transition name="fade">
+                                    <div v-if="loadingContacts" class="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-90 z-10">
+                                        <div class="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-2"></div>
+                                        <p class="text-sm text-gray-500">加载联系人中...</p>
+                                    </div>
+                                </transition>
+                                
+                                <!-- 空状态 -->
+                                <transition name="fade">
+                                    <div v-if="!loadingContacts && filteredFriends.length === 0" class="absolute inset-0 flex flex-col items-center justify-center bg-white">
+                                        <div class="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-2">
+                                            <i class="fa-solid fa-user-slash text-xl"></i>
+                                        </div>
+                                        <p class="text-sm text-gray-500">暂无联系人</p>
+                                    </div>
+                                </transition>
+                                
+                                <!-- 联系人列表 -->
+                                <transition-group name="list" tag="div" v-if="!loadingContacts && filteredFriends.length > 0" class="divide-y divide-gray-100">
+                                    <!-- 特殊选项: 所有人 -->
+                                    <label class="flex items-center px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                                        <div class="flex items-center h-5">
+                                            <input type="checkbox" v-model="selectedSpecialFriends" value="所有人"
+                                                   class="w-4 h-4 text-primary-600 bg-gray-100 rounded border-gray-300 focus:ring-primary-500 focus:ring-2">
+                                        </div>
+                                        <div class="w-7 h-7 ml-3 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                            <i class="fa-solid fa-users-viewfinder text-sm"></i>
+                                        </div>
+                                        <div class="ml-3 text-sm">
+                                            <span class="font-medium text-gray-900">所有人</span>
+                                        </div>
+                                    </label>
+                                    
+                                    <!-- 联系人项 -->
+                                    <label v-for="friend in filteredFriends" :key="friend" 
+                                           class="flex items-center px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div class="flex items-center h-5">
+                                            <input type="checkbox" v-model="selectedFriends" :value="friend"
+                                                   class="w-4 h-4 text-primary-600 bg-gray-100 rounded border-gray-300 focus:ring-primary-500 focus:ring-2">
+                                        </div>
+                                        <div class="w-7 h-7 ml-3 flex items-center justify-center rounded-full bg-primary-100 text-primary-600 flex-shrink-0 font-medium text-sm">
+                                            [[friend.charAt(0)]]
+                                        </div>
+                                        <div class="ml-3 text-sm">
+                                            <span class="font-medium text-gray-900">[[friend]]</span>
+                                        </div>
+                                    </label>
+                                </transition-group>
+                            </div>
+                        </div>
+                        
+                        <!-- 手动输入模式 -->
+                        <div v-else>
+                            <textarea v-model="manualFriends"
+                                      placeholder="输入联系人名称，使用逗号、换行或分号分隔&#10;例如: 张三,李四,王五"
+                                      rows="12"
+                                      class="block w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 resize-none"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+            
+            <!-- 微信群组卡片 -->
+            <transition name="fade" appear>
+                <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 transform transition duration-300 hover:shadow-md">
+                    <!-- 标题栏 -->
+                    <div class="flex justify-between items-center px-5 py-4 border-b border-gray-100 bg-gray-50">
+                        <h3 class="text-base font-medium text-gray-900 flex items-center">
+                            <i class="fa-solid fa-users text-green-600 mr-2"></i>
+                            微信群组
+                        </h3>
+                        <div class="flex items-center space-x-2">
+                            <!-- 搜索框 -->
+                            <div v-if="!enableManualGroups" class="relative">
+                                <input type="text" 
+                                    placeholder="搜索群组..." 
+                                    v-model="searchTermGroups"
+                                    class="w-32 sm:w-40 pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                            </div>
+                            
+                            <!-- 切换按钮 -->
+                            <div class="inline-flex rounded-md shadow-sm" role="group">
+                                <button @click="enableManualGroups = false" 
+                                        :class="{'bg-green-600 text-white': !enableManualGroups, 'bg-white text-gray-700': enableManualGroups}"
+                                        class="px-2.5 py-1.5 text-xs font-medium rounded-l-lg border border-gray-300 focus:z-10 focus:ring-2 focus:ring-green-500 transition-colors">
+                                    <i class="fa-solid fa-list-ul mr-1"></i>
+                                    列表
+                                </button>
+                                <button @click="enableManualGroups = true" 
+                                        :class="{'bg-green-600 text-white': enableManualGroups, 'bg-white text-gray-700': !enableManualGroups}"
+                                        class="px-2.5 py-1.5 text-xs font-medium rounded-r-lg border border-gray-300 focus:z-10 focus:ring-2 focus:ring-green-500 transition-colors">
+                                    <i class="fa-solid fa-pen-to-square mr-1"></i>
+                                    手动
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 内容区域 -->
+                    <div class="p-4 bg-white">
+                        <!-- 列表选择模式 -->
+                        <div v-if="!enableManualGroups" class="space-y-3">
+                            <!-- 选择操作栏 -->
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="text-xs text-gray-600 flex items-center">
+                                    已选择 <span class="inline-flex items-center justify-center ml-1.5 w-5 h-5 text-xs font-medium rounded-full bg-green-100 text-green-800">[[selectedGroups.length]]</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="selectAllGroups" 
+                                            class="text-xs px-2 py-1 text-green-700 hover:bg-green-50 rounded transition flex items-center">
+                                        <i class="fa-solid fa-check-double mr-1"></i> 全选
+                                    </button>
+                                    <button @click="deselectAllGroups" 
+                                            class="text-xs px-2 py-1 text-gray-700 hover:bg-gray-50 rounded transition flex items-center">
+                                        <i class="fa-solid fa-xmark mr-1"></i> 清除
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 群组列表 -->
+                            <div class="border border-gray-200 rounded-lg h-[280px] overflow-y-auto relative bg-white">
+                                <!-- 加载状态 -->
+                                <transition name="fade">
+                                    <div v-if="loadingContacts" class="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-90 z-10">
+                                        <div class="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-2"></div>
+                                        <p class="text-sm text-gray-500">加载群组中...</p>
+                                    </div>
+                                </transition>
+                                
+                                <!-- 空状态 -->
+                                <transition name="fade">
+                                    <div v-if="!loadingContacts && filteredGroups.length === 0" class="absolute inset-0 flex flex-col items-center justify-center bg-white">
+                                        <div class="w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-2">
+                                            <i class="fa-solid fa-users-slash text-xl"></i>
+                                        </div>
+                                        <p class="text-sm text-gray-500">暂无群组</p>
+                                    </div>
+                                </transition>
+                                
+                                <!-- 群组列表 -->
+                                <transition-group name="list" tag="div" v-if="!loadingContacts && filteredGroups.length > 0" class="divide-y divide-gray-100">
+                                    <!-- 群组项 -->
+                                    <label v-for="group in filteredGroups" :key="group" 
+                                           class="flex items-center px-3 py-2.5 cursor-pointer hover:bg-green-50 transition-colors">
+                                        <div class="flex items-center h-5">
+                                            <input type="checkbox" v-model="selectedGroups" :value="group"
+                                                   class="w-4 h-4 text-green-600 bg-gray-100 rounded border-gray-300 focus:ring-green-500 focus:ring-2">
+                                        </div>
+                                        <div class="w-7 h-7 ml-3 flex items-center justify-center rounded-full bg-green-100 text-green-600 flex-shrink-0">
+                                            <i class="fa-solid fa-user-group text-sm"></i>
+                                        </div>
+                                        <div class="ml-3 text-sm truncate max-w-[calc(100%-4rem)]">
+                                            <span class="font-medium text-gray-900">[[group]]</span>
+                                        </div>
+                                    </label>
+                                </transition-group>
+                            </div>
+                        </div>
+                        
+                        <!-- 手动输入模式 -->
+                        <div v-else>
+                            <textarea v-model="manualGroups"
+                                      placeholder="输入群组名称，使用逗号、换行或分号分隔&#10;例如: 技术群,产品群,市场群"
+                                      rows="12"
+                                      class="block w-full px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 resize-none"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+        </div>
+        
+        <!-- 右侧面板：消息内容和发送结果 -->
+        <div class="space-y-6">
+            <!-- 消息内容卡片 -->
+            <transition name="fade" appear>
+                <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 transform transition duration-300 hover:shadow-md">
+                    <!-- 标题栏 -->
+                    <div class="flex justify-between items-center px-5 py-4 border-b border-gray-100 bg-gray-50">
+                        <h3 class="text-base font-medium text-gray-900 flex items-center">
+                            <i class="fa-solid fa-envelope text-blue-600 mr-2"></i>
+                            消息内容
+                        </h3>
+                        <div class="flex items-center gap-1.5">
+                            <span v-if="computedFriends.length" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                <i class="fa-solid fa-user text-xs mr-1"></i>
+                                [[computedFriends.length]]人
+                            </span>
+                            <span v-if="computedGroups.length" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="fa-solid fa-users text-xs mr-1"></i>
+                                [[computedGroups.length]]群
+                            </span>
+                            <span v-if="!computedFriends.length && !computedGroups.length" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                <i class="fa-solid fa-circle-exclamation text-xs mr-1"></i>
+                                未选择接收者
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- 内容区域 -->
+                    <div class="p-4 bg-white">
+                        <div class="space-y-3">
+                            <!-- 消息输入框 -->
+                            <div class="relative border border-gray-300 rounded-lg overflow-hidden transition-shadow focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                                <textarea v-model="message" 
+                                          placeholder="请输入要发送的消息内容..."
+                                          rows="11"
+                                          class="block w-full px-4 py-3 text-sm text-gray-700 focus:outline-none resize-none"
+                                          @keydown.ctrl.enter="canSend && sendMessage()"></textarea>
+                                  
+                                <div class="absolute bottom-1 right-2 text-xs text-gray-400">
+                                    按下 Ctrl+Enter 快速发送
+                                </div>
+                            </div>
+                            
+                            <!-- 操作按钮 -->
+                            <div class="flex justify-end gap-3 items-center">
+                                <!-- 清空按钮 -->
+                                <button @click="message = ''" 
+                                        :disabled="!message"
+                                        class="px-3.5 py-2 bg-white text-gray-600 border border-gray-300 rounded-full text-xs font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                                    <i class="fa-solid fa-trash-can mr-1.5"></i>
+                                    清空
+                                </button>
+                                
+                                <!-- 发送按钮 -->
+                                <button @click="sendMessage" 
+                                        :disabled="sending || (!computedFriends.length && !computedGroups.length) || !message"
+                                        class="relative px-4 py-2 bg-primary-600 text-white rounded-full text-xs font-medium hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center overflow-hidden">
+                                    <!-- 波纹效果 -->
+                                    <span v-if="sending" class="absolute inset-0 bg-white bg-opacity-30 animate-pulse"></span>
+                                    
+                                    <i :class="{'fa-solid fa-paper-plane mr-1.5': !sending, 'fa-solid fa-spinner fa-spin mr-1.5': sending}"></i>
+                                    <span>[[sending ? '发送中...' : '发送消息']]</span>
+                                </button>
+                            </div>
+                            
+                            <!-- 小提示 -->
+                            <div v-if="!sending && (computedFriends.length > 0 || computedGroups.length > 0) && message" 
+                                 class="text-xs text-gray-500 italic flex items-center mt-1">
+                                <i class="fa-solid fa-circle-info mr-1 text-blue-400"></i>
+                                消息将发送至 [[computedFriends.length]] 个联系人和 [[computedGroups.length]] 个群组
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+            
+            <!-- 发送结果卡片 -->
+            <transition name="fade-up">
+                <div v-if="results.length > 0" class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 transform transition duration-300 hover:shadow-md results">
+                    <!-- 标题栏 -->
+                    <div class="flex justify-between items-center px-5 py-4 border-b border-gray-100 bg-gray-50">
+                        <h3 class="text-base font-medium text-gray-900 flex items-center">
+                            <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i>
+                            发送结果
+                        </h3>
+                        <div>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <span class="mr-2 text-xs text-gray-600">只显示成功</span>
+                                <input type="checkbox" v-model="hideFailedResults" class="sr-only peer">
+                                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- 内容区域 -->
+                    <div class="p-4 bg-white">
+                        <!-- 结果摘要 -->
+                        <div :class="[allSuccess ? 'bg-green-50 border-green-300 text-green-800' : 'bg-amber-50 border-amber-300 text-amber-800']" 
+                             class="mb-4 border-l-4 px-4 py-3 rounded-r-md flex items-start gap-2">
+                            <div class="flex-shrink-0 mt-0.5">
+                                <i :class="[allSuccess ? 'fa-solid fa-circle-check text-green-500' : 'fa-solid fa-triangle-exclamation text-amber-500']"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium">
+                                    消息发送完成 
+                                    <span class="font-semibold text-green-700">成功: [[successCount]]</span>，
+                                    <span class="font-semibold text-red-600">失败: [[results.length - successCount]]</span>
+                                </p>
+                                <p v-if="!allSuccess" class="mt-1 text-xs opacity-80">
+                                    部分消息发送失败，请查看下方详情
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- 结果列表 -->
+                        <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm h-[280px] overflow-y-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50 sticky top-0 z-10">
+                                    <tr>
+                                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            接收者
+                                        </th>
+                                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            类型
+                                        </th>
+                                        <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            状态
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr v-for="result in filteredResults" :key="result.receiver" 
+                                        :class="{'bg-green-50': result.success, 'bg-red-50': !result.success}"
+                                        class="hover:bg-opacity-70 transition-colors">
+                                        <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 truncate max-w-[200px]">
+                                            [[result.receiver]]
+                                        </td>
+                                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                            <span v-if="result.receiver.startsWith('群聊:')" class="inline-flex items-center">
+                                                <i class="fa-solid fa-users text-green-500 mr-1.5"></i> 群组
+                                            </span>
+                                            <span v-else class="inline-flex items-center">
+                                                <i class="fa-solid fa-user text-primary-500 mr-1.5"></i> 联系人
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2 whitespace-nowrap text-right">
+                                            <span v-if="result.success" class="inline-flex items-center text-green-700">
+                                                <i class="fa-solid fa-circle-check mr-1"></i> 成功
+                                            </span>
+                                            <span v-else class="inline-flex items-center text-red-600">
+                                                <i class="fa-solid fa-circle-xmark mr-1"></i> 失败
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            
+                            <!-- 无结果显示 -->
+                            <div v-if="filteredResults.length === 0" class="py-8 text-center">
+                                <p class="text-gray-500 text-sm">没有符合条件的结果</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+        </div>
+    </div>
+
+    <!-- 提示消息 toast -->
+    <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-in-out"
+         :class="{'translate-y-0 opacity-100': showToast, 'translate-y-10 opacity-0 pointer-events-none': !showToast}">
+        <div class="flex items-center px-4 py-3 rounded-full shadow-lg text-white"
+             :class="{'bg-green-600': toastSuccess, 'bg-red-600': !toastSuccess}">
+            <div class="flex-shrink-0 mr-2">
+                <i class="fa-solid" :class="{'fa-circle-check': toastSuccess, 'fa-circle-exclamation': !toastSuccess}"></i>
+            </div>
+            <div class="flex-1">
+                <p class="text-sm font-medium">[[toastMessage]]</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动版切换按钮 (小屏幕时显示) -->
+    <div class="fixed bottom-4 right-4 lg:hidden z-40">
+        <button @click="scrollToMessageSection" 
+                class="w-12 h-12 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <i class="fa-solid fa-paper-plane"></i>
+        </button>
+    </div>
+    
+    <!-- 刷新联系人按钮 -->
+    <div class="fixed bottom-4 left-4 lg:hidden z-40">
+        <button @click="refreshContacts" 
+                class="w-12 h-12 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+            <i class="fa-solid fa-rotate-right"></i>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 设置 axios 默认配置，确保发送凭证（cookie）
+        axios.defaults.withCredentials = true;
+        
+        const MassSendApp = {
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    friends: [],
+                    groups: [],
+                    selectedFriends: [],
+                    selectedGroups: [],
+                    selectedSpecialFriends: [], // 用于"所有人"选项
+                    enableManualFriends: false,  // 是否启用手动输入联系人
+                    enableManualGroups: false,   // 是否启用手动输入群组
+                    manualFriends: '',           // 手动输入的联系人
+                    manualGroups: '',            // 手动输入的群组
+                    message: '',
+                    sending: false,
+                    results: [],
+                    hideFailedResults: false,    // 是否隐藏失败的结果
+                    showToast: false,
+                    toastMessage: '',
+                    toastSuccess: true,
+                    toastTimer: null,
+                    searchTermFriends: '',       // 联系人搜索
+                    searchTermGroups: '',        // 群组搜索
+                    loadingContacts: true,       // 加载状态
+                    loadError: null,             // 加载错误
+                    isMobile: window.innerWidth < 1024, // 是否为移动设备
+                }
+            },
+            mounted() {
+                this.getContacts();
+                // 添加键盘快捷键
+                document.addEventListener('keydown', this.handleKeyDown);
+                // 添加窗口大小变化监听
+                window.addEventListener('resize', this.onResize);
+                // 初始化检查设备类型
+                this.checkDeviceType();
+            },
+            beforeUnmount() {
+                // 移除事件监听
+                document.removeEventListener('keydown', this.handleKeyDown);
+                window.removeEventListener('resize', this.onResize);
+            },
+            computed: {
+                // 过滤搜索的好友列表
+                filteredFriends() {
+                    if (!this.searchTermFriends) return this.friends;
+                    const term = this.searchTermFriends.toLowerCase();
+                    return this.friends.filter(friend => friend.toLowerCase().includes(term));
+                },
+                
+                // 过滤搜索的群组列表
+                filteredGroups() {
+                    if (!this.searchTermGroups) return this.groups;
+                    const term = this.searchTermGroups.toLowerCase();
+                    return this.groups.filter(group => group.toLowerCase().includes(term));
+                },
+                
+                // 计算实际要发送的联系人列表 (从列表选择或手动输入)
+                computedFriends() {
+                    if (this.enableManualFriends) {
+                        return this.parseManualInput(this.manualFriends);
+                    } else {
+                        // 检查是否选择了"所有人"
+                        if (this.selectedSpecialFriends.includes('所有人')) {
+                            return ['所有人'];
+                        }
+                        return this.selectedFriends;
+                    }
+                },
+                
+                // 计算实际要发送的群组列表 (从列表选择或手动输入)
+                computedGroups() {
+                    if (this.enableManualGroups) {
+                        return this.parseManualInput(this.manualGroups);
+                    } else {
+                        return this.selectedGroups;
+                    }
+                },
+                
+                successCount() {
+                    return this.results.filter(r => r.success).length;
+                },
+                
+                allSuccess() {
+                    return this.results.length > 0 && this.successCount === this.results.length;
+                },
+                
+                // 根据设置过滤结果
+                filteredResults() {
+                    if (this.hideFailedResults) {
+                        return this.results.filter(r => r.success);
+                    }
+                    return this.results;
+                },
+                
+                // 判断是否可以发送
+                canSend() {
+                    return !this.sending && 
+                           ((this.computedFriends.length > 0 || this.computedGroups.length > 0) && 
+                            this.message.trim() !== '');
+                }
+            },
+            methods: {
+                // 检查设备类型
+                checkDeviceType() {
+                    this.isMobile = window.innerWidth < 1024;
+                },
+                
+                // 窗口大小变化处理
+                onResize() {
+                    this.checkDeviceType();
+                },
+                
+                // 滚动到消息部分(移动设备用)
+                scrollToMessageSection() {
+                    // 兼容性处理，:has选择器在某些移动浏览器中可能不支持
+                    const textareas = document.querySelectorAll('textarea');
+                    let msgElement = null;
+                    
+                    if (textareas.length > 0) {
+                        // 查找包含消息输入框的卡片
+                        for (let textarea of textareas) {
+                            if (textarea.placeholder && textarea.placeholder.includes('请输入要发送的消息')) {
+                                msgElement = textarea.closest('.bg-white');
+                                break;
+                            }
+                        }
+                        
+                        // 如果找到，滚动到该元素
+                        if (msgElement) {
+                            msgElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            // 聚焦到消息输入框
+                            setTimeout(() => {
+                                const textarea = msgElement.querySelector('textarea');
+                                if (textarea) textarea.focus();
+                            }, 500);
+                        }
+                    }
+                },
+                
+                // 处理键盘快捷键
+                handleKeyDown(e) {
+                    // 如果按下 Ctrl+Enter 并且可以发送，则触发发送
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && this.canSend) {
+                        this.sendMessage();
+                    }
+                },
+                
+                // 解析手动输入的文本，分隔符支持逗号、分号、换行
+                parseManualInput(input) {
+                    if (!input || !input.trim()) return [];
+                    
+                    // 替换所有分隔符为统一的逗号，然后按逗号分割
+                    const text = input.replace(/[\n;，]/g, ',');
+                    
+                    // 分割并过滤掉空项
+                    return text.split(',')
+                        .map(item => item.trim())
+                        .filter(item => item !== '');
+                },
+                
+                getContacts() {
+                    this.loadingContacts = true;
+                    this.loadError = null;
+                    
+                    axios.get('/api/contacts?silent=true', { withCredentials: true })
+                        .then(response => {
+                            this.loadingContacts = false;
+                            if (response.data.success) {
+                                this.friends = response.data.data.friends;
+                                this.groups = response.data.data.groups;
+                                
+                                // 如果API返回了需要更新的提示但不显示警告
+                                if (response.data.needs_update) {
+                                    console.log('需要更新联系人数据: ' + response.data.message);
+                                    this.showToastMessage('联系人数据可能需要更新，建议到聊天管理页面更新', false);
+                                }
+                                
+                                // 检查数据状态：联系人为空但群组有数据的情况
+                                if (this.friends.length === 0 && this.groups.length > 0) {
+                                    this.showToastMessage('联系人数据可能不完整，建议到聊天管理页面更新联系人数据', false);
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            this.loadingContacts = false;
+                            this.loadError = error.message || '获取联系人失败';
+                            console.error('获取联系人失败:', error);
+                            this.showToastMessage('获取联系人失败: ' + error.message, false);
+                        });
+                },
+                
+                refreshContacts() {
+                    // 刷新联系人和群组数据
+                    this.selectedFriends = [];
+                    this.selectedGroups = [];
+                    this.selectedSpecialFriends = [];
+                    this.getContacts();
+                },
+                
+                selectAllFriends() {
+                    this.selectedFriends = [...this.filteredFriends];
+                },
+                
+                deselectAllFriends() {
+                    this.selectedFriends = [];
+                    this.selectedSpecialFriends = [];
+                },
+                
+                selectAllGroups() {
+                    this.selectedGroups = [...this.filteredGroups];
+                },
+                
+                deselectAllGroups() {
+                    this.selectedGroups = [];
+                },
+                
+                sendMessage() {
+                    console.log('开始发送消息...');
+                    if (!this.message) {
+                        this.showToastMessage('请输入消息内容', false);
+                        console.log('错误: 消息内容为空');
+                        return;
+                    }
+                    
+                    const friendsToSend = this.computedFriends;
+                    const groupsToSend = this.computedGroups;
+                    
+                    console.log('发送目标:', {联系人: friendsToSend, 群组: groupsToSend});
+                    
+                    if (friendsToSend.length === 0 && groupsToSend.length === 0) {
+                        this.showToastMessage('请至少选择或输入一个接收者', false);
+                        console.log('错误: 未选择接收者');
+                        return;
+                    }
+                    
+                    this.sending = true;
+                    this.results = [];
+                    
+                    // 直接使用 direct_send_message API，不通过 data.json 文件
+                    axios.post('/api/direct_send_message', {
+                        receiver_names: friendsToSend,
+                        group_names: groupsToSend,
+                        content: this.message
+                    }, { withCredentials: true })
+                        .then(response => {
+                            console.log('API响应:', response);
+                            if (response.data.success) {
+                                this.results = response.data.results || [];
+                                this.showToastMessage('消息发送成功', true);
+                                console.log('发送成功，结果:', this.results);
+                            } else {
+                                this.showToastMessage('发送失败: ' + (response.data.message || '未知错误'), false);
+                                console.error('发送失败(响应中):', response.data);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('发送失败(异常):', error);
+                            // 检查是否重定向到登录页面
+                            if (error.response && error.response.status === 302) {
+                                this.showToastMessage('登录会话已过期，请重新登录', false);
+                                // 2秒后重定向到登录页面
+                                setTimeout(() => {
+                                    window.location.href = '/login';
+                                }, 2000);
+                            } else {
+                                this.showToastMessage('发送失败: ' + (error.response?.data?.message || error.message || '未知错误'), false);
+                            }
+                        })
+                        .finally(() => {
+                            this.sending = false;
+                            console.log('发送操作完成');
+                            
+                            // 滚动到结果区域
+                            if (this.results.length > 0) {
+                                setTimeout(() => {
+                                    const resultsElement = document.querySelector('.results');
+                                    if (resultsElement) {
+                                        resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }
+                                }, 100);
+                            }
+                        });
+                },
+                
+                showToastMessage(message, success) {
+                    this.toastMessage = message;
+                    this.toastSuccess = success;
+                    this.showToast = true;
+                    
+                    if (this.toastTimer) {
+                        clearTimeout(this.toastTimer);
+                    }
+                    
+                    this.toastTimer = setTimeout(() => {
+                        this.showToast = false;
+                    }, 3000);
+                }
+            }
+        };
+        Vue.createApp(MassSendApp).mount('#massSendApp');
+    });
+</script>
+
+<style>
+/* 页面过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 列表项动画 */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* 从下往上淡入动画 */
+.fade-up-enter-active,
+.fade-up-leave-active {
+  transition: all 0.5s ease;
+}
+.fade-up-enter-from,
+.fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 移动设备适配 */
+@media (max-width: 1024px) {
+  .h-\[280px\] {
+    height: 240px; /* 在移动设备上略微减小高度 */
+  }
+  
+  /* 改善在移动设备上的触摸区域 */
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+  
+  label.flex.items-center {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  
+  /* 提高移动设备上的可读性 */
+  .text-xs {
+    font-size: 0.8rem;
+  }
+}
+
+/* 提高按钮点击时的反馈 */
+button:active {
+  transform: scale(0.98);
+}
+
+/* 增强卡片选中效果 */
+input[type="checkbox"]:checked ~ div {
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+/* 确保所有卡片高度一致 */
+@media (min-width: 1024px) {
+  .lg\:grid-cols-2 > div {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .lg\:grid-cols-2 > div > div {
+    flex: 1;
+  }
+}
+</style>
+{% endblock %} 

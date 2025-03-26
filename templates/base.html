@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}卡盟微信管理后台{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue.js and Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.6.1/dist/socket.io.min.js"></script>
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#e3f2fd',
+                            100: '#bbdefb',
+                            200: '#90caf9',
+                            300: '#64b5f6',
+                            400: '#42a5f5',
+                            500: '#2196f3',
+                            600: '#1e88e5',
+                            700: '#1976d2',
+                            800: '#1565c0',
+                            900: '#0d47a1',
+                            950: '#082d6d',
+                        },
+                        secondary: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            200: '#99f6e4',
+                            300: '#5eead4',
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                            950: '#042f2e',
+                        },
+                        danger: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            200: '#fecdd3',
+                            300: '#fda4af',
+                            400: '#fb7185',
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                            700: '#be123c',
+                            800: '#9f1239',
+                            900: '#881337',
+                            950: '#4c0519',
+                        },
+                        gray: {
+                            50: '#f9fafb',
+                            100: '#f3f4f6',
+                            200: '#e5e7eb',
+                            300: '#d1d5db',
+                            400: '#9ca3af',
+                            500: '#6b7280',
+                            600: '#4b5563',
+                            700: '#374151',
+                            800: '#1f2937',
+                            900: '#111827',
+                            950: '#030712',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'card': '0 2px 10px rgba(0, 0, 0, 0.05)',
+                        'card-hover': '0 4px 20px rgba(0, 0, 0, 0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #1f2937;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .main-layout {
+            min-height: 100vh;
+        }
+        
+        @media (max-width: 1023px) {
+            body.overflow-hidden {
+                overflow: hidden;
+            }
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% if session.logged_in %}
+    <div class="main-layout">
+        <!-- 移动端遮罩层 -->
+        <div id="sidebarBackdrop" class="fixed inset-0 bg-gray-600 bg-opacity-75 z-20 lg:hidden hidden" 
+             @click="toggleSidebar"></div>
+        
+        <!-- 侧边栏 -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm z-30 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div class="h-16 px-4 flex items-center justify-between border-b border-gray-200">
+                <h1 class="text-lg font-semibold text-primary-600 truncate">卡盟微信管理后台</h1>
+                <button @click="toggleSidebar" class="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-1 px-3">
+                    <li>
+                        <a href="{{ url_for('index') }}" class="flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100 {% if request.path == url_for('index') %}bg-primary-50 text-primary-700 border-l-4 border-primary-500{% endif %}">
+                            <i class="fa-solid fa-house w-5 h-5"></i>
+                            <span class="ml-3">首页</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/chat" class="flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100 {% if request.path.startswith('/chat') %}bg-primary-50 text-primary-700 border-l-4 border-primary-500{% endif %}">
+                            <i class="fa-solid fa-comments w-5 h-5"></i>
+                            <span class="ml-3">聊天管理</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/mass_message" class="flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100 {% if request.path.startswith('/mass_message') %}bg-primary-50 text-primary-700 border-l-4 border-primary-500{% endif %}">
+                            <i class="fa-solid fa-bullhorn w-5 h-5"></i>
+                            <span class="ml-3">群发消息</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/autoreply" class="flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100 {% if request.path.startswith('/autoreply') %}bg-primary-50 text-primary-700 border-l-4 border-primary-500{% endif %}">
+                            <i class="fa-solid fa-reply-all w-5 h-5"></i>
+                            <span class="ml-3">自动回复</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/plugins" class="flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100 {% if request.path.startswith('/plugins') %}bg-primary-50 text-primary-700 border-l-4 border-primary-500{% endif %}">
+                            <i class="fa-solid fa-puzzle-piece w-5 h-5"></i>
+                            <span class="ml-3">插件管理</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/settings" class="flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100 {% if request.path.startswith('/settings') %}bg-primary-50 text-primary-700 border-l-4 border-primary-500{% endif %}">
+                            <i class="fa-solid fa-gear w-5 h-5"></i>
+                            <span class="ml-3">系统设置</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+        
+        <!-- 主内容区 -->
+        <div class="flex flex-col min-h-screen transition-all duration-300 lg:pl-64">
+            <header class="bg-white border-b border-gray-200 shadow-sm h-16 sticky top-0 z-10">
+                <div class="h-full flex justify-between items-center px-4 sm:px-6">
+                    <div class="flex items-center">
+                        <!-- 移动端菜单按钮 -->
+                        <button id="menuToggle" @click="toggleSidebar" class="mr-3 p-2 text-gray-600 rounded-lg lg:hidden focus:outline-none focus:ring-2 focus:ring-gray-200 hover:bg-gray-100">
+                            <i class="fa-solid fa-bars"></i>
+                        </button>
+                        <h1 class="text-xl font-semibold text-gray-800">{% block page_title %}首页{% endblock %}</h1>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div id="statusInfo" class="mr-2 hidden sm:block">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium" 
+                                  v-bind:class="{'bg-green-100 text-green-700': isOnline, 'bg-red-100 text-red-700': !isOnline}">
+                                <i class="fa-solid" v-bind:class="{'fa-check-circle': isOnline, 'fa-times-circle': !isOnline}"></i>
+                                <span class="ml-1">[[ statusText ]]</span>
+                            </span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="flex items-center px-3 py-1.5 bg-gray-100 rounded-lg">
+                                <div class="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 mr-2">
+                                    <i class="fa-solid fa-user text-sm"></i>
+                                </div>
+                                <span class="text-sm text-gray-700 hidden sm:inline">{{ session.username }}</span>
+                            </div>
+                            <a href="{{ url_for('logout') }}" class="ml-2 p-2 text-gray-600 hover:text-danger-600 hover:bg-danger-50 rounded-full transition-colors" title="退出登录">
+                                <i class="fa-solid fa-power-off"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <main class="flex-1 bg-gray-50 p-4 sm:p-6">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    {% else %}
+    <div class="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        {% block auth_content %}{% endblock %}
+    </div>
+    {% endif %}
+
+    <script>
+        if (document.getElementById('statusInfo')) {
+            const StatusApp = {
+                delimiters: ['[[', ']]'],
+                data() {
+                    return {
+                        isOnline: false,
+                        statusText: '获取状态中...',
+                        timer: null
+                    }
+                },
+                mounted() {
+                    this.checkStatus();
+                    this.timer = setInterval(this.checkStatus, 30000); // 每30秒检查一次状态
+                },
+                beforeUnmount() {
+                    clearInterval(this.timer);
+                },
+                methods: {
+                    checkStatus() {
+                        axios.get('/api/status')
+                            .then(response => {
+                                const data = response.data;
+                                this.isOnline = data.is_online;
+                                
+                                if (data.is_running) {
+                                    if (data.is_online) {
+                                        this.statusText = `${data.nickname || '用户'} 在线`;
+                                    } else {
+                                        this.statusText = '服务运行中 - 未登录';
+                                    }
+                                } else {
+                                    this.statusText = '服务未运行';
+                                }
+                            })
+                            .catch(error => {
+                                console.error('获取状态失败:', error);
+                                this.statusText = '获取状态失败';
+                                this.isOnline = false;
+                            });
+                    }
+                }
+            };
+            Vue.createApp(StatusApp).mount('#statusInfo');
+        }
+        
+        // 添加侧边栏切换功能
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebarCloseBtn = document.querySelector('#sidebar button');
+            
+            if (sidebar && backdrop && menuToggle) {
+                const SidebarApp = {
+                    delimiters: ['[[', ']]'],
+                    methods: {
+                        toggleSidebar() {
+                            sidebar.classList.toggle('-translate-x-full');
+                            backdrop.classList.toggle('hidden');
+                            document.body.classList.toggle('overflow-hidden', !sidebar.classList.contains('-translate-x-full'));
+                        }
+                    }
+                };
+                
+                const app = Vue.createApp(SidebarApp);
+                app.mount('#sidebar');
+                app.mount('#sidebarBackdrop');
+                app.mount('#menuToggle');
+                
+                // 添加导航链接点击事件，移动端点击导航后关闭菜单
+                const navLinks = document.querySelectorAll('#sidebar nav a');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 1024) {
+                            setTimeout(() => {
+                                sidebar.classList.add('-translate-x-full');
+                                backdrop.classList.add('hidden');
+                                document.body.classList.remove('overflow-hidden');
+                            }, 100);
+                        }
+                    });
+                });
+                
+                // 监听窗口大小变化，自动处理菜单显示
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth >= 1024) {
+                        backdrop.classList.add('hidden');
+                        document.body.classList.remove('overflow-hidden');
+                    } else if (!sidebar.classList.contains('-translate-x-full')) {
+                        backdrop.classList.remove('hidden');
+                    }
+                });
+            }
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

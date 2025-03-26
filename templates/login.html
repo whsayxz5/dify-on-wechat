@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 卡盟微信管理后台{% endblock %}
+
+{% block auth_content %}
+<div class="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg transform transition-all">
+    <div class="text-center">
+        <div class="inline-flex rounded-full bg-primary-100 p-5">
+            <svg class="w-10 h-10 text-primary-600" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.5,4C5.36,4 2,6.69 2,10C2,11.89 3.08,13.56 4.78,14.66L4,17L6.5,15.5C7.39,15.81 8.37,16 9.41,16C9.15,15.37 9,14.7 9,14C9,10.69 12.13,8 16,8C16.19,8 16.38,8 16.56,8.03C15.44,5.73 12.72,4 9.5,4M6.5,6.5A1,1 0 0,1 7.5,7.5A1,1 0 0,1 6.5,8.5A1,1 0 0,1 5.5,7.5A1,1 0 0,1 6.5,6.5M11.5,6.5A1,1 0 0,1 12.5,7.5A1,1 0 0,1 11.5,8.5A1,1 0 0,1 10.5,7.5A1,1 0 0,1 11.5,6.5M16,9C12.69,9 10,11.13 10,14C10,16.87 12.69,19 16,19C16.67,19 17.31,18.91 17.91,18.75L20,20L19.38,18.13C20.95,17.22 22,15.71 22,14C22,11.13 19.31,9 16,9M14,11.5A1,1 0 0,1 15,12.5A1,1 0 0,1 14,13.5A1,1 0 0,1 13,12.5A1,1 0 0,1 14,11.5M18,11.5A1,1 0 0,1 19,12.5A1,1 0 0,1 18,13.5A1,1 0 0,1 17,12.5A1,1 0 0,1 18,11.5Z" />
+            </svg>
+        </div>
+        <h2 class="mt-6 text-3xl font-bold text-gray-900">卡盟微信管理后台</h2>
+        <p class="mt-2 text-sm text-gray-600">请使用您的帐号凭据登录</p>
+    </div>
+    
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <div class="rounded-md bg-red-50 p-4 border border-red-200 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fa-solid fa-circle-exclamation text-red-500"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">登录失败</h3>
+                <div class="mt-2 text-sm text-red-700">
+                    <ul class="list-disc pl-5 space-y-1">
+                        {% for message in messages %}
+                        <li>{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+    
+    <form class="mt-8 space-y-6" method="post" action="{{ url_for('login') }}">
+        <div class="rounded-md -space-y-px">
+            <div class="mb-4">
+                <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+                <div class="mt-1 relative rounded-md shadow-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-user text-gray-400"></i>
+                    </div>
+                    <input id="username" name="username" type="text" required 
+                           class="pl-10 block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                           placeholder="请输入用户名">
+                </div>
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+                <div class="mt-1 relative rounded-md shadow-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-lock text-gray-400"></i>
+                    </div>
+                    <input id="password" name="password" type="password" required
+                           class="pl-10 block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                           placeholder="请输入密码">
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <button type="submit" 
+                    class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transform transition hover:scale-105">
+                <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                    <i class="fa-solid fa-right-to-bracket text-primary-300 group-hover:text-primary-200"></i>
+                </span>
+                登录
+            </button>
+        </div>
+    </form>
+    
+    <div class="text-center text-sm text-gray-500 mt-4">
+        <p>© 2025 KaMeng. All rights reserved.</p>
+        <div class="mt-3 flex justify-center space-x-3">
+            <a href="#" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fa-solid fa-circle-info"></i> 帮助
+            </a>
+            <a href="#" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fa-solid fa-shield-halved"></i> 隐私政策
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

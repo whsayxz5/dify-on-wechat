@@ -1,0 +1,1170 @@
+{% extends "base.html" %}
+
+{% block title %}自动回复配置 - 卡盟微信管理后台{% endblock %}
+
+{% block page_title %}自动回复配置{% endblock %}
+
+{% block head %}
+<style>
+    /* 微信风格CSS */
+    .wx-container {
+        background-color: #f5f5f5;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        max-width: 100%;
+        overflow: hidden;
+    }
+    
+    .wx-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px;
+        background-color: #fff;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .wx-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+        margin: 0;
+    }
+    
+    .wx-function-bar {
+        display: flex;
+        background-color: #f8f8f8;
+        padding: 10px 16px;
+        border-bottom: 1px solid #e5e5e5;
+        flex-wrap: wrap;
+    }
+    
+    .wx-function-btn {
+        background: none;
+        border: none;
+        color: #07C160;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 4px;
+        margin-right: 8px;
+        transition: background-color 0.2s;
+    }
+    
+    .wx-function-btn:hover {
+        background-color: #e5e5e5;
+    }
+    
+    .wx-function-btn i {
+        font-size: 16px;
+        margin-right: 4px;
+    }
+    
+    .wx-search-box {
+        flex: 1;
+        display: flex;
+        margin-left: auto;
+        max-width: 300px;
+    }
+    
+    .wx-search-input {
+        background-color: #e5e5e5;
+        border: none;
+        border-radius: 18px;
+        padding: 6px 12px;
+        font-size: 14px;
+        width: 100%;
+    }
+    
+    .wx-search-input:focus {
+        background-color: #fff;
+        outline: none;
+        box-shadow: 0 0 0 1px #07C160;
+    }
+    
+    .wx-rules-list {
+        background-color: #fff;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    
+    .wx-rule-item {
+        border-bottom: 1px solid #f0f0f0;
+        position: relative;
+    }
+    
+    .wx-rule-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .wx-rule-header:hover {
+        background-color: #f8f8f8;
+    }
+    
+    .wx-rule-header.active {
+        background-color: #f0f0f0;
+    }
+    
+    .wx-rule-title {
+        font-size: 15px;
+        font-weight: 500;
+        color: #333;
+        margin: 0;
+    }
+    
+    .wx-rule-preview {
+        font-size: 12px;
+        color: #999;
+        margin-top: 4px;
+        max-width: 500px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .wx-rule-actions {
+        display: flex;
+    }
+    
+    .wx-action-btn {
+        background: none;
+        border: none;
+        color: #07C160;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        margin-left: 4px;
+        transition: background-color 0.2s;
+    }
+    
+    .wx-action-btn:hover {
+        background-color: #e5e5e5;
+    }
+    
+    .wx-action-btn.delete {
+        color: #ff4d4f;
+    }
+    
+    .wx-rule-content {
+        padding: 16px;
+        background-color: #f8f8f8;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    .wx-form-group {
+        margin-bottom: 16px;
+    }
+    
+    .wx-form-label {
+        display: block;
+        font-size: 14px;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    
+    .wx-form-control {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 14px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        background-color: #fff;
+    }
+    
+    .wx-form-control:focus {
+        outline: none;
+        border-color: #07C160;
+        box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.2);
+    }
+    
+    .wx-keywords-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    
+    .wx-keyword-tag {
+        display: flex;
+        align-items: center;
+        background-color: #07C160;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+    
+    .wx-keyword-tag .btn-close {
+        width: 16px;
+        height: 16px;
+        margin-left: 6px;
+        cursor: pointer;
+        opacity: 0.8;
+        padding: 0;
+        background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center/8px auto no-repeat;
+    }
+    
+    .wx-keyword-tag .btn-close:hover {
+        opacity: 1;
+    }
+    
+    .wx-add-keyword {
+        display: flex;
+    }
+    
+    .wx-button {
+        background-color: #07C160;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .wx-button:hover {
+        background-color: #06ae56;
+    }
+    
+    .wx-button:disabled {
+        background-color: #b2e3c9;
+        cursor: not-allowed;
+    }
+    
+    .wx-button.secondary {
+        background-color: #f0f0f0;
+        color: #333;
+    }
+    
+    .wx-button.secondary:hover {
+        background-color: #e0e0e0;
+    }
+    
+    .wx-button.danger {
+        background-color: #ff4d4f;
+        color: white;
+    }
+    
+    .wx-button.danger:hover {
+        background-color: #ff1f1f;
+    }
+    
+    .wx-footer {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background-color: #fff;
+        border-top: 1px solid #e0e0e0;
+    }
+    
+    .wx-empty-message {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px 0;
+        color: #999;
+    }
+    
+    .wx-empty-icon {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 16px;
+    }
+    
+    .wx-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+    
+    .wx-modal-dialog {
+        background-color: #fff;
+        border-radius: 8px;
+        width: 95%;
+        max-width: 500px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        overflow: hidden;
+    }
+    
+    .wx-modal-header {
+        padding: 16px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .wx-modal-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+        margin: 0;
+    }
+    
+    .wx-modal-close {
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        color: #999;
+    }
+    
+    .wx-modal-body {
+        padding: 16px;
+    }
+    
+    .wx-modal-footer {
+        padding: 12px 16px;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .wx-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1040;
+    }
+    
+    .wx-toast {
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0,0,0,0.7);
+        color: white;
+        padding: 10px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+    }
+    
+    .wx-toast i {
+        margin-right: 8px;
+        font-size: 18px;
+    }
+    
+    /* 分页样式 */
+    .wx-pagination {
+        display: flex;
+        justify-content: center;
+        padding: 16px;
+        background-color: #fff;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    .wx-page-item {
+        margin: 0 4px;
+    }
+    
+    .wx-page-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+        background-color: #fff;
+        color: #333;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .wx-page-link:hover {
+        border-color: #07C160;
+        color: #07C160;
+    }
+    
+    .wx-page-link.active {
+        background-color: #07C160;
+        border-color: #07C160;
+        color: #fff;
+    }
+    
+    .wx-page-link.disabled {
+        color: #ccc;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="autoreplyApp" class="max-w-6xl mx-auto">
+    <!-- 主容器 -->
+    <div class="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
+        <!-- 页头 -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h2 class="text-lg font-medium text-gray-800">自动回复规则</h2>
+            <button @click="addNewRule" class="flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                <i class="fa-solid fa-plus mr-2"></i>
+                添加规则
+            </button>
+        </div>
+        
+        <!-- 功能栏 -->
+        <div class="flex items-center justify-between flex-wrap bg-white px-6 py-3 border-b border-gray-100">
+            <div class="flex items-center gap-2 flex-wrap">
+                <button @click="downloadTemplate" class="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fa-solid fa-download mr-1.5 text-primary-500"></i>
+                    下载模板
+                </button>
+                <button @click="triggerImport" class="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fa-solid fa-file-import mr-1.5 text-blue-500"></i>
+                    导入配置
+                </button>
+                <button @click="exportConfig" class="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fa-solid fa-file-export mr-1.5 text-green-500"></i>
+                    导出配置
+                </button>
+            </div>
+            
+            <!-- 搜索框 -->
+            <div class="relative w-64 mt-2 sm:mt-0">
+                <input type="text" 
+                       v-model="searchQuery" 
+                       placeholder="搜索规则" 
+                       class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-full focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            </div>
+            <input type="file" id="fileInput" accept=".csv" style="display: none;" @change="handleFileSelect">
+        </div>
+        
+        <!-- 空状态 -->
+        <div v-if="Object.keys(filteredRules).length === 0" class="flex flex-col items-center justify-center py-20 px-6 text-center">
+            <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <i class="fa-regular fa-comment-dots text-3xl text-gray-400"></i>
+            </div>
+            <h3 class="text-base font-medium text-gray-800 mb-1">暂无自动回复规则</h3>
+            <p class="text-sm text-gray-500 mb-4">点击"添加规则"按钮创建第一条规则</p>
+            <button @click="addNewRule" class="flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                <i class="fa-solid fa-plus mr-2"></i>
+                添加规则
+            </button>
+        </div>
+        
+        <!-- 规则列表将在接下来的步骤添加 -->
+        <div v-if="Object.keys(filteredRules).length > 0">
+            <ul class="divide-y divide-gray-100">
+                <li v-for="(rule, ruleName) in paginatedRules" 
+                    :key="ruleName" 
+                    class="relative hover:bg-gray-50 transition-colors">
+                    <!-- 规则头部 -->
+                    <div class="flex items-center justify-between px-6 py-4 cursor-pointer" 
+                        @click="toggleRule(ruleName)">
+                        <div class="flex-1 mr-4">
+                            <h3 class="text-base font-medium text-gray-900 mb-1">[[ruleName]]</h3>
+                            <div class="flex flex-wrap items-center text-sm text-gray-500">
+                                <div class="flex items-center mr-4">
+                                    <i class="fa-solid fa-hashtag text-gray-400 mr-1.5"></i>
+                                    <span>[[rule.keywords.length]] 个关键词</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-filter text-gray-400 mr-1.5"></i>
+                                    <span>[[rule.match_type === 'exact' ? '精确匹配' : '模糊匹配']]</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <button @click.stop="deleteRule(ruleName)" 
+                                    class="p-1.5 text-gray-500 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 mr-1">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                            <div class="w-6 h-6 flex items-center justify-center text-gray-500">
+                                <i class="fa-solid" :class="expandedRules[ruleName] ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 展开内容 -->
+                    <div v-if="expandedRules[ruleName]" 
+                        class="px-6 pb-6 pt-2 border-t border-gray-100 bg-gray-50">
+                        <!-- 规则名称 -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">规则名称</label>
+                            <input type="text" 
+                                v-model="editingRules[ruleName].name" 
+                                placeholder="输入规则名称" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        </div>
+                        
+                        <!-- 关键词 -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">关键词</label>
+                            <div class="flex flex-wrap items-start gap-2 mb-2">
+                                <span v-for="(keyword, index) in editingRules[ruleName].keywords" 
+                                      :key="index" 
+                                      class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
+                                    [[keyword]]
+                                    <button @click="removeKeyword(ruleName, index)" 
+                                            class="ml-1.5 text-primary-500 hover:text-primary-700 focus:outline-none">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </span>
+                                <span v-if="editingRules[ruleName].keywords.length === 0" 
+                                      class="text-sm text-gray-500 italic">
+                                    请添加至少一个关键词
+                                </span>
+                            </div>
+                            <div class="flex">
+                                <input type="text" 
+                                       v-model="newKeywords[ruleName]" 
+                                       @keyup.enter="addKeyword(ruleName)" 
+                                       placeholder="输入关键词" 
+                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                                <button @click="addKeyword(ruleName)" 
+                                        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-r-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                    添加
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 匹配类型 -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">匹配类型</label>
+                            <div class="flex gap-4">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" 
+                                           v-model="editingRules[ruleName].match_type" 
+                                           value="exact" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-700">精确匹配</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" 
+                                           v-model="editingRules[ruleName].match_type" 
+                                           value="contains" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-700">模糊匹配</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- 回复内容 -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">回复内容</label>
+                            <textarea v-model="editingRules[ruleName].reply" 
+                                      rows="4" 
+                                      placeholder="输入回复内容" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"></textarea>
+                        </div>
+                        
+                        <!-- 保存按钮 -->
+                        <div class="flex justify-end">
+                            <button @click="saveRuleEdit(ruleName)" 
+                                    class="flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                <i class="fa-solid fa-check mr-2"></i>
+                                保存修改
+                            </button>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+            
+            <!-- 分页控件 -->
+            <div v-if="totalPages > 1" class="flex items-center justify-center space-x-1 pt-4 pb-6 bg-white px-6">
+                <button @click="goToPage(currentPage - 1)" 
+                        :disabled="currentPage === 1" 
+                        :class="{'text-gray-400 cursor-not-allowed': currentPage === 1, 'text-gray-700 hover:bg-gray-100': currentPage !== 1}"
+                        class="inline-flex items-center justify-center w-8 h-8 rounded focus:outline-none">
+                    <i class="fa-solid fa-chevron-left text-sm"></i>
+                </button>
+                
+                <template v-for="page in totalPages" :key="page">
+                    <!-- 当页数较多时使用省略展示 -->
+                    <template v-if="totalPages <= 7 || page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)">
+                        <button @click="goToPage(page)" 
+                                :class="{'bg-primary-100 text-primary-700': page === currentPage, 'text-gray-700 hover:bg-gray-100': page !== currentPage}"
+                                class="inline-flex items-center justify-center w-8 h-8 rounded focus:outline-none text-sm">
+                            [[page]]
+                        </button>
+                    </template>
+                    
+                    <!-- 省略号 -->
+                    <span v-else-if="(page === 2 && currentPage > 3) || (page === totalPages - 1 && currentPage < totalPages - 2)" 
+                          class="inline-flex items-center justify-center w-8 h-8 text-gray-500">
+                        ···
+                    </span>
+                </template>
+                
+                <button @click="goToPage(currentPage + 1)" 
+                        :disabled="currentPage === totalPages" 
+                        :class="{'text-gray-400 cursor-not-allowed': currentPage === totalPages, 'text-gray-700 hover:bg-gray-100': currentPage !== totalPages}"
+                        class="inline-flex items-center justify-center w-8 h-8 rounded focus:outline-none">
+                    <i class="fa-solid fa-chevron-right text-sm"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 底部操作栏 -->
+        <div v-if="Object.keys(config.keyword).length > 0" class="flex items-center justify-between px-6 py-4 bg-white border-t border-gray-100">
+            <span class="text-sm text-gray-500">[[Object.keys(config.keyword).length]] 条规则</span>
+            <button @click="saveConfig" 
+                    :disabled="saving"
+                    class="flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <i :class="{'fa-solid fa-save mr-2': !saving, 'fa-solid fa-spinner fa-spin mr-2': saving}"></i>
+                [[saving ? '保存中...' : '保存全部配置']]
+            </button>
+        </div>
+    </div>
+
+    <!-- 其他组件将在后续步骤添加 -->
+
+    <!-- 新规则对话框 -->
+    <div v-if="showNewRuleModal"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         aria-labelledby="modal-title"
+         role="dialog"
+         aria-modal="true">
+        <!-- 遮罩层 -->
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-50 transition-opacity"></div>
+        
+        <!-- 对话框内容 -->
+        <div class="flex items-center justify-center min-h-screen p-4 text-center sm:block sm:p-0">
+            <div class="inline-block align-bottom bg-white rounded-xl px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <!-- 对话框头部 -->
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium leading-6 text-gray-900" id="modal-title">
+                        添加新规则
+                    </h3>
+                    <button @click="showNewRuleModal = false" class="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+                
+                <!-- 对话框主体 -->
+                <div class="mt-3">
+                    <!-- 规则名称 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">规则名称</label>
+                        <input type="text" 
+                            v-model="newRule.name" 
+                            placeholder="输入规则名称" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                    </div>
+                    
+                    <!-- 关键词 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">关键词</label>
+                        <div class="flex flex-wrap items-start gap-2 mb-2 min-h-[36px]">
+                            <span v-for="(keyword, index) in newRule.keywords" 
+                                  :key="index" 
+                                  class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
+                                [[keyword]]
+                                <button @click="newRule.keywords.splice(index, 1)" 
+                                        class="ml-1.5 text-primary-500 hover:text-primary-700 focus:outline-none">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </span>
+                            <span v-if="newRule.keywords.length === 0" 
+                                  class="text-sm text-gray-500 italic">
+                                请添加至少一个关键词
+                            </span>
+                        </div>
+                        <div class="flex">
+                            <input type="text" 
+                                   v-model="newKeyword" 
+                                   @keyup.enter="addNewRuleKeyword" 
+                                   placeholder="输入关键词" 
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                            <button @click="addNewRuleKeyword" 
+                                    class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-r-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                添加
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 匹配类型 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">匹配类型</label>
+                        <div class="flex gap-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" 
+                                       v-model="newRule.match_type" 
+                                       value="exact" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+                                <span class="ml-2 text-sm text-gray-700">精确匹配</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" 
+                                       v-model="newRule.match_type" 
+                                       value="contains" 
+                                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+                                <span class="ml-2 text-sm text-gray-700">模糊匹配</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- 回复内容 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">回复内容</label>
+                        <textarea v-model="newRule.reply" 
+                                  rows="4" 
+                                  placeholder="输入回复内容" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"></textarea>
+                    </div>
+                </div>
+                
+                <!-- 对话框底部按钮 -->
+                <div class="mt-5 sm:mt-6 flex justify-end gap-3">
+                    <button @click="showNewRuleModal = false" 
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        取消
+                    </button>
+                    <button @click="createNewRule" 
+                            :disabled="!newRule.name || newRule.keywords.length === 0 || !newRule.reply"
+                            :class="{'opacity-50 cursor-not-allowed': !newRule.name || newRule.keywords.length === 0 || !newRule.reply}"
+                            class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        创建规则
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示消息 -->
+    <div v-if="showToast" 
+         class="fixed bottom-4 right-4 flex items-center px-4 py-3 rounded-lg shadow-lg z-50 transition-all duration-300"
+         :class="{'bg-green-50 text-green-800 border-l-4 border-green-500': toastSuccess, 'bg-red-50 text-red-800 border-l-4 border-red-500': !toastSuccess}">
+        <div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-full mr-2"
+             :class="{'text-green-500 bg-green-100': toastSuccess, 'text-red-500 bg-red-100': !toastSuccess}">
+            <i class="fa-solid" :class="toastSuccess ? 'fa-circle-check' : 'fa-circle-xmark'"></i>
+        </div>
+        <div>
+            <span class="font-medium">[[toastMessage]]</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const AutoreplyApp = {
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    config: { keyword: {} },
+                    expandedRules: {},
+                    editingRules: {},
+                    newKeywords: {},
+                    newRule: {
+                        name: '',
+                        keywords: [],
+                        match_type: 'exact',
+                        reply: ''
+                    },
+                    newKeyword: '',
+                    showNewRuleModal: false,
+                    saving: false,
+                    showToast: false,
+                    toastMessage: '',
+                    toastSuccess: true,
+                    toastTimer: null,
+                    searchQuery: '',
+                    currentPage: 1,
+                    rulesPerPage: 20
+                }
+            },
+            computed: {
+                filteredRules() {
+                    const query = this.searchQuery.toLowerCase().trim();
+                    if (!query) return this.config.keyword;
+                    
+                    const result = {};
+                    for (const ruleName in this.config.keyword) {
+                        const rule = this.config.keyword[ruleName];
+                        // 搜索规则名
+                        if (ruleName.toLowerCase().includes(query)) {
+                            result[ruleName] = rule;
+                            continue;
+                        }
+                        
+                        // 搜索关键词
+                        const hasMatchingKeyword = rule.keywords.some(keyword => 
+                            keyword.toLowerCase().includes(query)
+                        );
+                        if (hasMatchingKeyword) {
+                            result[ruleName] = rule;
+                            continue;
+                        }
+                        
+                        // 搜索回复内容
+                        if (rule.reply.toLowerCase().includes(query)) {
+                            result[ruleName] = rule;
+                        }
+                    }
+                    return result;
+                },
+                totalRules() {
+                    return Object.keys(this.filteredRules).length;
+                },
+                totalPages() {
+                    return Math.ceil(this.totalRules / this.rulesPerPage);
+                },
+                paginatedRules() {
+                    const start = (this.currentPage - 1) * this.rulesPerPage;
+                    const end = start + this.rulesPerPage;
+                    const ruleNames = Object.keys(this.filteredRules).slice(start, end);
+                    
+                    const result = {};
+                    ruleNames.forEach(name => {
+                        result[name] = this.filteredRules[name];
+                    });
+                    
+                    return result;
+                }
+            },
+            watch: {
+                searchQuery() {
+                    this.currentPage = 1; // 搜索时重置到第一页
+                }
+            },
+            mounted() {
+                this.fetchConfig();
+            },
+            methods: {
+                fetchConfig() {
+                    axios.get('/api/get_autoreply_config')
+                        .then(response => {
+                            if (response.data.status === 'success') {
+                                this.config = response.data.data || { keyword: {} };
+                                
+                                // 初始化编辑状态
+                                this.expandedRules = {};
+                                this.editingRules = {};
+                                this.newKeywords = {};
+                                
+                                for (const ruleName in this.config.keyword) {
+                                    this.expandedRules[ruleName] = false;
+                                    this.editingRules[ruleName] = JSON.parse(JSON.stringify(this.config.keyword[ruleName]));
+                                    this.editingRules[ruleName].name = ruleName;
+                                    this.newKeywords[ruleName] = '';
+                                }
+                            } else {
+                                this.showToastMessage('加载配置失败', false);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('获取配置失败:', error);
+                            this.showToastMessage('获取配置失败', false);
+                        });
+                },
+                toggleRule(ruleName) {
+                    if (!this.expandedRules[ruleName]) {
+                        this.expandedRules = Object.keys(this.expandedRules).reduce((obj, key) => {
+                            obj[key] = key === ruleName;
+                            return obj;
+                        }, {});
+                    } else {
+                        this.expandedRules[ruleName] = !this.expandedRules[ruleName];
+                    }
+                },
+                addKeyword(ruleName) {
+                    const keyword = this.newKeywords[ruleName].trim();
+                    if (keyword && !this.editingRules[ruleName].keywords.includes(keyword)) {
+                        this.editingRules[ruleName].keywords.push(keyword);
+                        this.newKeywords[ruleName] = '';
+                    }
+                },
+                removeKeyword(ruleName, index) {
+                    this.editingRules[ruleName].keywords.splice(index, 1);
+                },
+                saveRuleEdit(ruleName) {
+                    const newName = this.editingRules[ruleName].name.trim();
+                    if (!newName) {
+                        this.showToastMessage('规则名称不能为空', false);
+                        return;
+                    }
+                    
+                    if (this.editingRules[ruleName].keywords.length === 0) {
+                        this.showToastMessage('至少需要一个关键词', false);
+                        return;
+                    }
+                    
+                    if (!this.editingRules[ruleName].reply) {
+                        this.showToastMessage('回复内容不能为空', false);
+                        return;
+                    }
+                    
+                    // 如果修改了规则名称，需要删除旧规则并创建新规则
+                    if (newName !== ruleName) {
+                        // 检查新名称是否已存在
+                        if (this.config.keyword[newName] && newName !== ruleName) {
+                            this.showToastMessage(`规则 "${newName}" 已存在`, false);
+                            return;
+                        }
+                        
+                        const ruleData = {
+                            keywords: this.editingRules[ruleName].keywords,
+                            match_type: this.editingRules[ruleName].match_type,
+                            reply: this.editingRules[ruleName].reply
+                        };
+                        
+                        // 删除旧规则
+                        delete this.config.keyword[ruleName];
+                        delete this.expandedRules[ruleName];
+                        delete this.editingRules[ruleName];
+                        delete this.newKeywords[ruleName];
+                        
+                        // 创建新规则
+                        this.config.keyword[newName] = ruleData;
+                        this.expandedRules[newName] = true;
+                        this.editingRules[newName] = {
+                            name: newName,
+                            ...ruleData
+                        };
+                        this.newKeywords[newName] = '';
+                    } else {
+                        // 只更新规则内容
+                        this.config.keyword[ruleName] = {
+                            keywords: this.editingRules[ruleName].keywords,
+                            match_type: this.editingRules[ruleName].match_type,
+                            reply: this.editingRules[ruleName].reply
+                        };
+                    }
+                    
+                    this.showToastMessage('规则保存成功', true);
+                },
+                deleteRule(ruleName) {
+                    if (confirm(`确定要删除规则 "${ruleName}" 吗？`)) {
+                        delete this.config.keyword[ruleName];
+                        delete this.expandedRules[ruleName];
+                        delete this.editingRules[ruleName];
+                        delete this.newKeywords[ruleName];
+                        this.showToastMessage('规则删除成功', true);
+                    }
+                },
+                addNewRule() {
+                    this.newRule = {
+                        name: '',
+                        keywords: [],
+                        match_type: 'exact',
+                        reply: ''
+                    };
+                    this.newKeyword = '';
+                    this.showNewRuleModal = true;
+                },
+                addNewRuleKeyword() {
+                    const keyword = this.newKeyword.trim();
+                    if (keyword && !this.newRule.keywords.includes(keyword)) {
+                        this.newRule.keywords.push(keyword);
+                        this.newKeyword = '';
+                    }
+                },
+                createNewRule() {
+                    const ruleName = this.newRule.name.trim();
+                    if (!ruleName) {
+                        this.showToastMessage('规则名称不能为空', false);
+                        return;
+                    }
+                    
+                    if (this.newRule.keywords.length === 0) {
+                        this.showToastMessage('至少需要一个关键词', false);
+                        return;
+                    }
+                    
+                    if (!this.newRule.reply) {
+                        this.showToastMessage('回复内容不能为空', false);
+                        return;
+                    }
+                    
+                    if (this.config.keyword[ruleName]) {
+                        this.showToastMessage(`规则 "${ruleName}" 已存在`, false);
+                        return;
+                    }
+                    
+                    this.config.keyword[ruleName] = {
+                        keywords: this.newRule.keywords,
+                        match_type: this.newRule.match_type,
+                        reply: this.newRule.reply
+                    };
+                    
+                    this.expandedRules[ruleName] = false;
+                    this.editingRules[ruleName] = JSON.parse(JSON.stringify(this.newRule));
+                    this.newKeywords[ruleName] = '';
+                    
+                    this.showNewRuleModal = false;
+                    this.showToastMessage('创建规则成功', true);
+                },
+                saveConfig() {
+                    this.saving = true;
+                    axios.post('/api/update_autoreply_config', this.config)
+                        .then(response => {
+                            if (response.data.status === 'success') {
+                                this.showToastMessage('配置保存成功', true);
+                            } else {
+                                this.showToastMessage(response.data.message || '保存失败', false);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('保存配置失败:', error);
+                            this.showToastMessage('保存配置失败', false);
+                        })
+                        .finally(() => {
+                            this.saving = false;
+                        });
+                },
+                triggerImport() {
+                    document.getElementById('fileInput').click();
+                },
+                handleFileSelect(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const text = e.target.result;
+                            const lines = text.split('\n');
+                            const newConfig = { keyword: {} };
+                            
+                            for (let i = 1; i < lines.length; i++) {
+                                if (!lines[i].trim()) continue;
+                                
+                                // CSV解析逻辑
+                                let fields = [];
+                                let currentField = '';
+                                let inQuotes = false;
+                                
+                                for (let j = 0; j < lines[i].length; j++) {
+                                    const char = lines[i][j];
+                                    
+                                    if (char === '"') {
+                                        if (inQuotes && j < lines[i].length - 1 && lines[i][j + 1] === '"') {
+                                            currentField += '"';
+                                            j++;
+                                        } else {
+                                            inQuotes = !inQuotes;
+                                        }
+                                    } else if (char === ',' && !inQuotes) {
+                                        fields.push(currentField);
+                                        currentField = '';
+                                    } else {
+                                        currentField += char;
+                                    }
+                                }
+                                fields.push(currentField);
+                                
+                                if (fields.length >= 4) {
+                                    const ruleName = fields[0].trim();
+                                    const keywordsStr = fields[1].trim();
+                                    const matchType = fields[2].trim();
+                                    const reply = fields[3].trim().replace(/\\n/g, '\n');
+                                    
+                                    if (ruleName && keywordsStr) {
+                                        const keywords = keywordsStr.split(',').map(k => k.trim());
+                                        newConfig.keyword[ruleName] = {
+                                            keywords: keywords,
+                                            match_type: matchType === 'exact' ? 'exact' : 'contains',
+                                            reply: reply
+                                        };
+                                    }
+                                }
+                            }
+                            
+                            // 更新配置
+                            this.config = newConfig;
+                            
+                            // 重置编辑状态
+                            this.expandedRules = {};
+                            this.editingRules = {};
+                            this.newKeywords = {};
+                            
+                            for (const ruleName in this.config.keyword) {
+                                this.expandedRules[ruleName] = false;
+                                this.editingRules[ruleName] = JSON.parse(JSON.stringify(this.config.keyword[ruleName]));
+                                this.editingRules[ruleName].name = ruleName;
+                                this.newKeywords[ruleName] = '';
+                            }
+                            
+                            this.showToastMessage('配置导入成功', true);
+                        } catch (error) {
+                            console.error('解析CSV失败:', error);
+                            this.showToastMessage('解析CSV失败: ' + error.message, false);
+                        }
+                    };
+                    reader.readAsText(file);
+                    // 清空文件输入以便再次选择同一文件
+                    event.target.value = '';
+                },
+                downloadTemplate() {
+                    const template = 'Rule Name,Keywords,Match Type,Reply\n示例规则,"关键词1,关键词2",exact,回复内容';
+                    this.downloadCSV(template, 'autoreply_template.csv');
+                },
+                exportConfig() {
+                    let csvContent = 'Rule Name,Keywords,Match Type,Reply\n';
+                    
+                    for (const ruleName in this.config.keyword) {
+                        const rule = this.config.keyword[ruleName];
+                        const keywords = rule.keywords.join(',');
+                        const matchType = rule.match_type;
+                        // 处理多行文本和引号
+                        const reply = rule.reply.replace(/\n/g, '\\n').replace(/"/g, '""');
+                        
+                        csvContent += `"${ruleName}","${keywords}","${matchType}","${reply}"\n`;
+                    }
+                    
+                    this.downloadCSV(csvContent, 'autoreply_config.csv');
+                },
+                downloadCSV(content, filename) {
+                    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                },
+                showToastMessage(message, success) {
+                    this.toastMessage = message;
+                    this.toastSuccess = success;
+                    this.showToast = true;
+                    
+                    if (this.toastTimer) {
+                        clearTimeout(this.toastTimer);
+                    }
+                    
+                    this.toastTimer = setTimeout(() => {
+                        this.showToast = false;
+                    }, 2000);
+                },
+                goToPage(page) {
+                    if (page < 1 || page > this.totalPages) return;
+                    this.currentPage = page;
+                }
+            }
+        };
+        Vue.createApp(AutoreplyApp).mount('#autoreplyApp');
+    });
+</script>
+{% endblock %} 

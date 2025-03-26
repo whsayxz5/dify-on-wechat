@@ -9,15 +9,15 @@
             "priority": 900
         },
         "Autoreply": {
-            "enabled": true,
+            "enabled": false,
             "priority": 900
         },
         "send_msg_ipad": {
-            "enabled": true,
+            "enabled": false,
             "priority": 669
         },
         "Banwords": {
-            "enabled": true,
+            "enabled": false,
             "priority": 100
         },
         "linkai": {

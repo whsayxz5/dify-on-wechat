@@ -1,0 +1,21 @@
+services:
+  dify-on-wechat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dify-on-wechat:local
+    container_name: dify-on-wechat
+    restart: always
+    ports:
+      - "7860:7860"  # 管理面板端口
+      - "9919:9919"  # gewechat 回调服务端口
+    volumes:
+      - ./config.json:/app/config.json
+      - ./plugins:/app/plugins
+      - ./logs:/app/logs
+      - ./tmp:/app/tmp
+    environment:
+      TZ: 'Asia/Shanghai'
+      # 可根据需要设置以下环境变量
+      # WEB_UI_USERNAME: 'admin'
+      # WEB_UI_PASSWORD: 'password' 

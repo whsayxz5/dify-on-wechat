@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+.github
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker/
+
+# 日志和临时文件
+logs/
+tmp/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 开发环境
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.idea/
+.vscode/
+
+# 个人配置（会通过volume挂载）
+config.json
+plugins/**/config.json
+
+# 文档和多余资源
+docs/
+*.md
+LICENSE 

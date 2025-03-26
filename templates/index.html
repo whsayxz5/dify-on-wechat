@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - 卡盟微信管理后台{% endblock %}
+
+{% block page_title %}首页{% endblock %}
+
+{% block head %}
+<style>
+    /* 自定义动画 */
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .animate-pulse-slow {
+        animation: pulse 2s infinite;
+    }
+    
+    /* 扫码提示动画 */
+    @keyframes scanwave {
+        0% { transform: scale(1); opacity: 0.8; }
+        70% { transform: scale(1.5); opacity: 0; }
+        100% { transform: scale(1.5); opacity: 0; }
+    }
+    
+    .scan-wave {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 60%;
+        height: 60%;
+        border-radius: 50%;
+        background-color: rgba(16, 185, 129, 0.2);
+        transform: translate(-50%, -50%);
+    }
+    
+    .scan-wave-animation {
+        animation: scanwave 2s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="dashboardApp">
+    <!-- 状态概览区域 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- 微信状态卡片 -->
+        <div class="bg-white rounded-xl shadow-card overflow-hidden lg:col-span-2">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100">
+                <h2 class="text-lg font-semibold text-gray-800">
+                    <i class="fa-brands fa-weixin text-primary-500 mr-2"></i>微信状态
+                </h2>
+                <div class="flex gap-2">
+                    <button @click="loadStatus" class="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="刷新状态">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                    <button @click="restartService" class="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" :disabled="processing" title="重启服务">
+                        <i class="fa-solid fa-refresh"></i>
+                    </button>
+                    <button @click="restartPanel" class="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" :disabled="processing" title="重启面板">
+                        <i class="fa-solid fa-power-off"></i>
+                    </button>
+                    <button v-if="status.is_online" @click="logoutGewechat" class="p-2 text-gray-500 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors" :disabled="processing" title="退出登录">
+                        <i class="fa-solid fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-5 flex flex-wrap md:flex-nowrap">
+                <!-- 头像/二维码区域 -->
+                <div class="w-full md:w-1/3 flex justify-center items-center mb-6 md:mb-0 md:pr-6">
+                    <div v-if="status.is_online && status.avatar_path" class="text-center">
+                        <div class="relative inline-block rounded-full p-1 bg-gradient-to-r from-primary-400 to-secondary-400">
+                            <img :src="status.avatar_path" alt="用户头像" class="w-36 h-36 object-cover rounded-full border-4 border-white">
+                        </div>
+                        <h3 class="mt-4 text-lg font-medium text-gray-800">[[ status.nickname ]]</h3>
+                        <span class="inline-flex items-center px-2.5 py-1 mt-2 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <span class="w-2 h-2 mr-1 rounded-full bg-green-500"></span>
+                            已登录
+                        </span>
+                    </div>
+                    <div v-else-if="!status.is_online && status.qrcode_path" class="text-center">
+                        <p class="text-sm text-gray-500 mb-3">请使用微信扫码登录</p>
+                        <div class="relative inline-block rounded-xl overflow-hidden shadow-md">
+                            <div class="scan-wave scan-wave-animation"></div>
+                            <img :src="status.qrcode_path" alt="登录二维码" class="w-48 h-48 object-cover">
+                        </div>
+                        <button @click="refreshQRCode" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary-600 bg-primary-50 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            <i class="fa-solid fa-arrows-rotate mr-2"></i>
+                            刷新二维码
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 状态详情区域 -->
+                <div class="w-full md:w-2/3 md:border-l md:border-gray-100 md:pl-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- 登录状态 -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fa-solid fa-user-check text-primary-500 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-500">登录状态</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium" 
+                                      :class="{'bg-green-100 text-green-800': status.is_online, 'bg-red-100 text-red-800': !status.is_online}">
+                                    <span class="w-2 h-2 mr-1 rounded-full" :class="{'bg-green-500': status.is_online, 'bg-red-500': !status.is_online}"></span>
+                                    [[ status.is_online ? '已登录' : '未登录' ]]
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- 当前用户 -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fa-solid fa-id-card text-primary-500 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-500">当前用户</span>
+                            </div>
+                            <div class="font-semibold text-gray-800 truncate">
+                                [[ status.nickname || '未登录' ]]
+                            </div>
+                        </div>
+                        
+                        <!-- 微信类型 -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fa-brands fa-weixin text-primary-500 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-500">微信类型</span>
+                            </div>
+                            <div class="font-semibold text-gray-800">
+                                [[ status.channel_type || 'Unknown' ]]
+                            </div>
+                        </div>
+                        
+                        <!-- 服务状态 -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fa-solid fa-server text-primary-500 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-500">服务状态</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium" 
+                                      :class="{'bg-green-100 text-green-800': status.is_running, 'bg-red-100 text-red-800': !status.is_running}">
+                                    <span class="w-2 h-2 mr-1 rounded-full" :class="{'bg-green-500': status.is_running, 'bg-red-500': !status.is_running}"></span>
+                                    [[ status.is_running ? '运行中' : '已停止' ]]
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- 插件数量 -->
+                        <div class="bg-gray-50 rounded-lg p-4 col-span-2">
+                            <div class="flex items-center mb-2">
+                                <i class="fa-solid fa-puzzle-piece text-primary-500 mr-2"></i>
+                                <span class="text-sm font-medium text-gray-500">插件数量</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="inline-flex items-center px-4 py-1.5 rounded-md text-sm font-medium bg-blue-100 text-blue-800">
+                                    <i class="fa-solid fa-cube mr-2"></i>
+                                    {{ plugin_count }} 个已安装
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统摘要卡片 -->
+        <div class="bg-white rounded-xl shadow-card overflow-hidden">
+            <div class="p-5 border-b border-gray-100">
+                <h2 class="text-lg font-semibold text-gray-800">
+                    <i class="fa-solid fa-chart-line text-primary-500 mr-2"></i>系统摘要
+                </h2>
+            </div>
+            <div class="p-5">
+                <div class="flex flex-col space-y-4">
+                    <!-- 系统状态指标 -->
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-3">
+                                <i class="fa-solid fa-bolt"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-600">系统状态</h3>
+                                <p class="text-lg font-semibold text-gray-800">正常运行</p>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <i class="fa-solid fa-check-circle mr-1"></i>
+                            良好
+                        </span>
+                    </div>
+                    
+                    <!-- 登录时长 -->
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
+                                <i class="fa-solid fa-clock"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-600">登录时长</h3>
+                                <p class="text-lg font-semibold text-gray-800">{{ login_duration if login_duration else '未知' }}</p>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <i class="fa-solid fa-calendar-check mr-1"></i>
+                            今日
+                        </span>
+                    </div>
+                    
+                    <!-- 活跃插件 -->
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mr-3">
+                                <i class="fa-solid fa-puzzle-piece"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-600">活跃插件</h3>
+                                <p class="text-lg font-semibold text-gray-800">{{ plugin_count }}</p>
+                            </div>
+                        </div>
+                        <a href="/plugins" class="text-primary-600 hover:text-primary-700 text-sm font-medium">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 确认重启对话框 -->
+    <div v-if="showRestartConfirm" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- 背景遮罩 -->
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showRestartConfirm = false"></div>
+            
+            <!-- 模态框内容 -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fa-solid fa-arrows-rotate text-blue-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">确认重启</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">确定要重启服务吗？重启过程可能需要几秒钟时间。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="confirmRestart" :disabled="processing" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        确认重启
+                    </button>
+                    <button type="button" @click="showRestartConfirm = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 确认退出对话框 -->
+    <div v-if="showLogoutConfirm" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- 背景遮罩 -->
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showLogoutConfirm = false"></div>
+            
+            <!-- 模态框内容 -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fa-solid fa-sign-out-alt text-red-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">确认退出</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">确定要退出当前登录的微信账号吗？</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="confirmLogout" :disabled="processing" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        确认退出
+                    </button>
+                    <button type="button" @click="showLogoutConfirm = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 确认重启面板对话框 -->
+    <div v-if="showRestartPanelConfirm" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- 背景遮罩 -->
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showRestartPanelConfirm = false"></div>
+            
+            <!-- 模态框内容 -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fa-solid fa-power-off text-blue-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">确认重启面板</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">确定要重启管理面板吗？重启过程中会暂时断开连接，但不会影响微信服务的运行。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="confirmRestartPanel" :disabled="processing" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        确认重启
+                    </button>
+                    <button type="button" @click="showRestartPanelConfirm = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 重启进度对话框 -->
+    <div v-if="showRestartProgress" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- 背景遮罩 -->
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+            
+            <!-- 模态框内容 -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:flex-col sm:items-center sm:justify-center">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 sm:mx-0 sm:h-14 sm:w-14 mb-4">
+                            <div class="animate-spin rounded-full h-10 w-10 border-4 border-primary-200 border-t-primary-600"></div>
+                        </div>
+                        <div class="mt-3 text-center">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">重启进行中</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500 mb-3">面板正在重启中，请稍候...</p>
+                                <p v-if="restartCountdown > 0" class="text-sm text-gray-500">将在 <span class="font-semibold text-primary-600">{{ restartCountdown }}</span> 秒后自动尝试重新连接</p>
+                                
+                                <div v-if="restartCountdown > 0" class="mt-4 mx-auto w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-primary-600 h-2 rounded-full" :style="{width: ((15-restartCountdown)/15*100) + '%'}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 提示框 -->
+    <div id="toast" 
+         class="fixed bottom-4 right-4 flex items-center p-4 space-x-4 w-full max-w-xs text-gray-500 bg-white rounded-lg divide-x divide-gray-200 shadow-md space-x transition-opacity duration-300 opacity-0 pointer-events-none transform translate-y-6">
+        <div id="toast-icon" class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg"></div>
+        <div class="pl-4 text-sm font-normal" id="toast-message"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const Dashboard = {
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    status: {
+                        is_running: false,
+                        is_online: false,
+                        nickname: null,
+                        avatar_path: null,
+                        qrcode_path: null,
+                        channel_type: ''
+                    },
+                    showRestartConfirm: false,
+                    showRestartPanelConfirm: false,
+                    showLogoutConfirm: false,
+                    showRestartProgress: false,
+                    restartCountdown: 0,
+                    restartTimer: null,
+                    reconnectAttempts: 0,
+                    processing: false
+                }
+            },
+            mounted() {
+                this.loadStatus();
+                // 每60秒自动刷新一次状态
+                setInterval(this.loadStatus, 60000);
+            },
+            methods: {
+                loadStatus() {
+                    axios.get('/api/status')
+                        .then(response => {
+                            this.status = response.data;
+                        })
+                        .catch(error => {
+                            console.error('获取状态失败:', error);
+                        });
+                },
+                restartService() {
+                    this.showRestartConfirm = true;
+                },
+                restartPanel() {
+                    this.showRestartPanelConfirm = true;
+                },
+                confirmRestart() {
+                    this.processing = true;
+                    axios.post('/api/restart')
+                        .then(response => {
+                            this.showRestartConfirm = false;
+                            if (response.data.success) {
+                                this.showToast('服务已重启', 'success');
+                                setTimeout(() => {
+                                    this.loadStatus();
+                                }, 5000); // 5秒后刷新状态
+                            } else {
+                                this.showToast('重启失败: ' + response.data.message, 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('重启失败:', error);
+                            this.showToast('重启失败', 'error');
+                        })
+                        .finally(() => {
+                            this.processing = false;
+                        });
+                },
+                confirmRestartPanel() {
+                    this.processing = true;
+                    axios.post('/api/restart_panel')
+                        .then(response => {
+                            this.showRestartPanelConfirm = false;
+                            if (response.data.success) {
+                                this.showRestartProgress = true;
+                                this.startRestartCountdown();
+                            } else {
+                                this.showToast('重启失败: ' + response.data.message, 'error');
+                                this.processing = false;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('重启失败:', error);
+                            this.showToast('重启失败', 'error');
+                            this.processing = false;
+                        });
+                },
+                startRestartCountdown() {
+                    this.restartCountdown = 15; // 15秒倒计时
+                    this.reconnectAttempts = 0;
+                    
+                    // 清除可能存在的旧计时器
+                    if (this.restartTimer) {
+                        clearInterval(this.restartTimer);
+                    }
+                    
+                    this.restartTimer = setInterval(() => {
+                        this.restartCountdown--;
+                        
+                        if (this.restartCountdown <= 0) {
+                            clearInterval(this.restartTimer);
+                            this.attemptReconnect();
+                        }
+                    }, 1000);
+                },
+                attemptReconnect() {
+                    this.reconnectAttempts++;
+                    console.log(`尝试重新连接 (${this.reconnectAttempts}/5)...`);
+                    
+                    axios.get('/api/status')
+                        .then(response => {
+                            // 连接成功，重新加载页面
+                            console.log('重新连接成功，刷新页面');
+                            this.showRestartProgress = false;
+                            this.processing = false;
+                            window.location.reload();
+                        })
+                        .catch(error => {
+                            console.error('重新连接失败:', error);
+                            if (this.reconnectAttempts < 5) {
+                                // 如果失败且尝试次数小于5，继续尝试
+                                this.restartCountdown = 5; // 5秒后再次尝试
+                                this.startRestartCountdown();
+                            } else {
+                                // 5次尝试后仍失败，提示用户手动刷新
+                                this.showRestartProgress = false;
+                                this.processing = false;
+                                this.showToast('重启面板可能需要更长时间，请手动刷新页面', 'warning');
+                            }
+                        });
+                },
+                logoutGewechat() {
+                    this.showLogoutConfirm = true;
+                },
+                confirmLogout() {
+                    this.processing = true;
+                    axios.post('/api/logout_gewechat')
+                        .then(response => {
+                            this.showLogoutConfirm = false;
+                            if (response.data.success) {
+                                this.showToast('已退出登录', 'success');
+                                this.loadStatus(); // 刷新状态
+                            } else {
+                                this.showToast('退出失败: ' + response.data.message, 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('退出失败:', error);
+                            this.showToast('退出失败', 'error');
+                        })
+                        .finally(() => {
+                            this.processing = false;
+                        });
+                },
+                refreshQRCode() {
+                    this.processing = true;
+                    // 添加时间戳强制刷新缓存
+                    this.status.qrcode_path = this.status.qrcode_path + '?t=' + new Date().getTime();
+                    this.processing = false;
+                },
+                showToast(message, type = 'info') {
+                    const toast = document.getElementById('toast');
+                    const toastIcon = document.getElementById('toast-icon');
+                    const toastMessage = document.getElementById('toast-message');
+                    
+                    // 设置消息
+                    toastMessage.textContent = message;
+                    
+                    // 根据类型设置图标和样式
+                    if (type === 'success') {
+                        toastIcon.className = 'inline-flex items-center justify-center flex-shrink-0 w-8 h-8 text-green-500 bg-green-100 rounded-lg';
+                        toastIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
+                    } else if (type === 'error') {
+                        toastIcon.className = 'inline-flex items-center justify-center flex-shrink-0 w-8 h-8 text-red-500 bg-red-100 rounded-lg';
+                        toastIcon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    } else if (type === 'warning') {
+                        toastIcon.className = 'inline-flex items-center justify-center flex-shrink-0 w-8 h-8 text-orange-500 bg-orange-100 rounded-lg';
+                        toastIcon.innerHTML = '<i class="fa-solid fa-exclamation"></i>';
+                    } else {
+                        toastIcon.className = 'inline-flex items-center justify-center flex-shrink-0 w-8 h-8 text-blue-500 bg-blue-100 rounded-lg';
+                        toastIcon.innerHTML = '<i class="fa-solid fa-info"></i>';
+                    }
+                    
+                    // 显示toast
+                    toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-6');
+                    toast.classList.add('opacity-100', 'translate-y-0');
+                    
+                    // 3秒后自动关闭
+                    setTimeout(() => {
+                        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-6');
+                        toast.classList.remove('opacity-100', 'translate-y-0');
+                    }, 3000);
+                }
+            }
+        };
+        Vue.createApp(Dashboard).mount('#dashboardApp');
+    });
+</script>
+{% endblock %} 

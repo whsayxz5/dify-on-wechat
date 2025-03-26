@@ -365,115 +365,186 @@ deepseek和openai可以共用一套api lib，，默认model是`deepseek-chat`
 - 2024/03/31 支持coze api(内测版)
 - 2024/03/29 支持dify基础的对话工作流，由于dify官网还未上线工作流，需要自行部署测试 [0.6.0-preview-workflow.1](https://github.com/langgenius/dify/releases/tag/0.6.0-preview-workflow.1)。
 
-# 快速开始
+# 安装和使用说明
 
-接入非Dify机器人可参考原项目文档 [chatgpt-on-wechat](https://github.com/zhayujie/chatgpt-on-wechat)、[项目搭建文档](https://docs.link-ai.tech/cow/quick-start)
+本项目支持两种安装方式：**本地安装**和**Docker安装**。两种方式都默认从`admin_ui.py`运行，提供完整的Web管理界面。
 
-Dify接入微信生态的**详细教程**请查看文章 [**手摸手教你把 Dify 接入微信生态**](https://docs.dify.ai/v/zh-hans/learn-more/use-cases/dify-on-wechat)
+## 快速开始
 
-下文介绍如何快速接入Dify
-
-## 准备
-
-### 1. 账号注册
-
-进入[Dify App](https://cloud.dify.ai) 官网注册账号，创建一个应用并发布，然后在概览页面创建保存api密钥，同时记录api url，一般为https://api.dify.ai/v1
-
-### 2.运行环境
-
-支持 Linux、MacOS、Windows 系统（可在Linux服务器上长期运行)，同时需安装 `Python`。
-
-python推荐3.8以上版本，已在ubuntu测试过3.11.6版本可以成功运行。
-
-**(1) 克隆项目代码：**
+最简单的启动方式是使用我们提供的智能启动脚本，它会自动检测环境并提供选项：
 
 ```bash
-git clone https://github.com/hanfangyuan4396/dify-on-wechat
-cd dify-on-wechat/
+# 克隆仓库
+git clone https://github.com/hanfangyuan4396/dify-on-wechat.git
+cd dify-on-wechat
+
+# 运行智能启动脚本
+chmod +x run.sh
+./run.sh
 ```
 
-**(2) 安装核心依赖 (必选)：**
-> 能够使用`itchat`创建机器人，并具有文字交流功能所需的最小依赖集合。
+启动脚本会：
+1. 检查配置文件是否存在，不存在则从模板创建
+2. 检测是否安装了Docker并提供选择
+3. 安装必要的依赖
+4. 提供前台或后台运行选项
+
+启动成功后，访问 http://localhost:7860 进入Web管理界面。
+
+## 1. 本地安装
+
+### 1.1 系统要求
+
+- Python 3.8 或更高版本
+- 依赖库：详见 `requirements.txt` 和 `requirements-optional.txt`
+
+### 1.2 安装步骤
+
+1. 克隆仓库
 ```bash
-pip3 install -r requirements.txt  # 国内可以在该命令末尾添加 "-i https://mirrors.aliyun.com/pypi/simple" 参数，使用阿里云镜像源安装依赖
+git clone https://github.com/hanfangyuan4396/dify-on-wechat.git
+cd dify-on-wechat
 ```
 
-**(3) 拓展依赖 (可选，建议安装)：**
-
+2. 创建配置文件
 ```bash
-pip3 install -r requirements-optional.txt # 国内可以在该命令末尾添加 "-i https://mirrors.aliyun.com/pypi/simple" 参数，使用阿里云镜像源安装依赖
-```
-> 如果某项依赖安装失败可注释掉对应的行再继续
-
-## 配置
-
-配置文件的模板在根目录的`config-template.json`中，需复制该模板创建最终生效的 `config.json` 文件：
-
-```bash
-  cp config-template.json config.json
+cp config-template.json config.json
 ```
 
-然后在`config.json`中填入配置，以下是对默认配置的说明，可根据需要进行自定义修改（如果复制下方的示例内容，请**去掉注释**, 务必保证正确配置**dify_app_type**）：
-
+3. 编辑配置文件，填入必要信息（API密钥、通道类型等）
 ```bash
-# dify config.json文件内容示例
-{ 
-  "dify_api_base": "https://api.dify.ai/v1",    # dify base url
-  "dify_api_key": "app-xxx",                    # dify api key
-  "dify_app_type": "chatbot",                   # dify应用类型 chatbot(对应聊天助手)/agent(对应Agent)/workflow(对应工作流)，默认为chatbot
-  "dify_convsersation_max_messages": 5,         # dify目前不支持设置历史消息长度，暂时使用超过最大消息数清空会话的策略，缺点是没有滑动窗口，会突然丢失历史消息，当设置的值小于等于0，则不限制历史消息长度
-  "channel_type": "wx",                         # 通道类型，当前为个人微信
-  "model": "dify",                              # 模型名称，当前对应dify平台
-  "single_chat_prefix": [""],                   # 私聊时文本需要包含该前缀才能触发机器人回复
-  "single_chat_reply_prefix": "",               # 私聊时自动回复的前缀，用于区分真人
-  "group_chat_prefix": ["@bot"],                # 群聊时包含该前缀则会触发机器人回复
-  "group_name_white_list": ["ALL_GROUP"],       # 机器人回复的群名称列表
-  "image_recognition": true,                    # 是否开启图片理解功能，需保证对应的dify应用已开启视觉功能
-  "speech_recognition": true,                   # 是否开启语音识别
-  "voice_reply_voice": true,                    # 是否使用语音回复语音
-  "always_reply_voice": false,                  # 是否一直使用语音回复
-  "voice_to_text": "dify",                      # 语音识别引擎
-  "text_to_voice": "dify"                       # 语音合成引擎
+# 使用您喜欢的编辑器编辑配置文件
+vim config.json
+```
+
+4. 运行本地启动脚本
+```bash
+./start_local.sh
+```
+脚本会自动检查和安装依赖，然后启动服务。
+
+### 1.3 本地启动后访问
+
+启动成功后，访问 http://localhost:7860 进入Web管理界面。
+默认用户名和密码在 `config.json` 中的 `web_ui_username` 和 `web_ui_password` 字段设置。
+
+## 2. Docker安装
+
+### 2.1 系统要求
+
+- Docker 19.03 或更高版本
+- Docker Compose v2.0 或更高版本
+
+### 2.2 安装步骤
+
+1. 克隆仓库
+```bash
+git clone https://github.com/hanfangyuan4396/dify-on-wechat.git
+cd dify-on-wechat
+```
+
+2. 创建配置文件
+```bash
+cp config-template.json config.json
+```
+
+3. 编辑配置文件，填入必要信息（API密钥、通道类型等）
+```bash
+# 使用您喜欢的编辑器编辑配置文件
+vim config.json
+```
+
+4. 运行Docker启动脚本
+```bash
+./start.sh
+```
+脚本会自动检查本地是否有镜像，没有则会构建镜像，然后启动服务。
+
+### 2.3 Docker启动后访问
+
+启动成功后，访问 http://localhost:7860 进入Web管理界面。
+默认用户名和密码在 `config.json` 中的 `web_ui_username` 和 `web_ui_password` 字段设置，也可以在 `docker-compose.yml` 的环境变量中设置。
+
+## 3. 配置说明
+
+配置文件 `config.json` 的关键字段说明：
+
+```json
+{
+  "dify_api_base": "https://api.dify.ai/v1",  // Dify API 基础地址
+  "dify_api_key": "app-xxx",                  // Dify 应用 API 密钥
+  "dify_app_type": "chatbot",                 // Dify 应用类型：chatbot/agent/workflow
+  "channel_type": "gewechat",                 // 通道类型：gewechat/wx/wechatmp等
+  "model": "dify",                            // 使用的模型
+  "single_chat_prefix": [""],                // 单聊触发前缀
+  "group_chat_prefix": ["@bot"],             // 群聊触发前缀
+  "web_ui_username": "dow",                  // Web界面用户名
+  "web_ui_password": "dify-on-wechat"        // Web界面密码
 }
 ```
 
-上述示例文件是个人微信对接dify的极简配置，详细配置说明需要查看config.py，注意**不要修改config.py中的值**，config.py只是校验是否是有效的key，最终**生效的配置请在config.json修改**。
+其中通道类型配置（channel_type），根据需要选择：
+- `gewechat`: 个人微信（基于iPad协议，推荐）
+- `wx`: 个人微信（基于Web协议，现已不可用）
+- `wechatmp`: 微信公众号
+- `wechatcom_app`: 企业微信应用
+- `wechatcom_service`: 企业服务号
+- `wework`: 企业微信个人号（仅Windows系统）
+- `dingtalk`: 钉钉
+- `feishu`: 飞书
 
-## 运行
+## 4. 管理操作
 
-### 1.本地运行
+### 4.1 查看日志
 
-如果是开发机 **本地运行**，直接在项目根目录下执行：
-
+- 本地安装：
 ```bash
-python3 app.py                                    # windows环境下该命令通常为 python app.py
+tail -f logs/admin_ui.log
 ```
 
-终端输出二维码后，使用微信进行扫码，当输出 "Start auto replying" 时表示自动回复程序已经成功运行了（注意：用于登录的微信需要在支付处已完成实名认证）。扫码登录后你的账号就成为机器人了，可以在微信手机端通过配置的关键词触发自动回复 (任意好友发送消息给你，或是自己发消息给好友)，参考[#142](https://github.com/zhayujie/chatgpt-on-wechat/issues/142)。
-
-### 2.服务器部署
-
-使用nohup命令在后台运行程序：
-
+- Docker安装：
 ```bash
-nohup python3 app.py & tail -f nohup.out          # 在后台运行程序并通过日志输出二维码
+docker-compose logs -f dify-on-wechat
 ```
-扫码登录后程序即可运行于服务器后台，此时可通过 `ctrl+c` 关闭日志，不会影响后台程序的运行。使用 `ps -ef | grep app.py | grep -v grep` 命令可查看运行于后台的进程，如果想要重新启动程序可以先 `kill` 掉对应的进程。日志关闭后如果想要再次打开只需输入 `tail -f nohup.out`。此外，`scripts` 目录下有一键运行、关闭程序的脚本供使用。
 
-> **多账号支持：** 将项目复制多份，分别启动程序，用不同账号扫码登录即可实现同时运行。
+### 4.2 停止服务
 
-> **特殊指令：** 用户向机器人发送 **#reset** 即可清空该用户的上下文记忆。
-
-### 3.Docker部署
-
-⚠️使用`docker`或者`docker-compose`部署时，**必须先拉取最新源码**，否则会报错⚠️
-
+使用通用停止脚本：
 ```bash
-cd dify-on-wechat/docker       # 进入docker目录
-cp ../config-template.json ../config.json
-docker compose up -d           # 启动docker容器
-docker logs -f dify-on-wechat  # 查看二维码并登录
+chmod +x stop.sh
+./stop.sh
 ```
+
+脚本会自动检测并停止本地Python进程或Docker容器。
+
+或者手动停止：
+
+- 本地安装：按 Ctrl+C 停止前台进程，或者找到进程PID后终止
+```bash
+ps -ef | grep admin_ui.py | grep -v grep
+kill [PID]
+```
+
+- Docker安装：
+```bash
+docker-compose down
+```
+
+### 4.3 更新配置
+
+编辑 `config.json` 文件后，需要重启服务才能生效：
+
+- 本地安装：关闭后重新运行 `./start_local.sh`
+- Docker安装：
+```bash
+docker-compose restart dify-on-wechat
+```
+
+## 5. 特别说明
+
+1. 本项目默认使用 `admin_ui.py` 作为入口，提供Web管理界面，方便配置和监控
+2. 所有配置和插件数据都通过`volume`挂载保存在宿主机，删除或重建容器不会丢失数据
+3. 首次启动时请确保已正确配置 `config.json`，特别是Dify API密钥和通道类型
 
 # Contributors
 <a href="https://github.com/hanfangyuan4396/dify-on-wechat/graphs/contributors">

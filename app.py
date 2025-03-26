@@ -7,9 +7,10 @@ import time
 
 from channel import channel_factory
 from common import const
-from config import load_config
+from config import load_config, conf
 from plugins import *
 import threading
+from common.log_config import app_logger as logger
 
 
 def sigterm_handler_wrap(_signo):

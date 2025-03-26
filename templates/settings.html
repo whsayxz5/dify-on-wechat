@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}系统设置 - 卡盟微信管理后台{% endblock %}
+
+{% block page_title %}系统设置{% endblock %}
+
+{% block content %}
+<div id="settingsApp">
+    <div class="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-gray-100">
+            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                <i class="fa-solid fa-gear text-primary-500 mr-2"></i>
+                系统配置
+            </h2>
+            <div>
+                <button @click="saveConfig" :disabled="saving"
+                        class="px-4 py-2 bg-primary-600 text-white rounded-lg flex items-center shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
+                    <i class="fa-solid" :class="{'fa-save': !saving, 'fa-spinner fa-spin': saving}"></i>
+                    <span class="ml-2">[[ saving ? '保存中...' : '保存配置' ]]</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            <div v-if="loading" class="flex flex-col items-center justify-center py-10">
+                <div class="w-16 h-16 rounded-full border-4 border-primary-200 border-t-primary-600 animate-spin"></div>
+                <p class="mt-4 text-gray-600">加载配置中...</p>
+            </div>
+            
+            <div v-else class="space-y-8">
+                <!-- 基础设置 -->
+                <div class="settings-section">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                        <i class="fa-solid fa-sliders text-primary-500 mr-2"></i>基础设置
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">通道类型</label>
+                            <div class="relative">
+                                <select v-model="config.channel_type"
+                                        class="block w-full pl-3 pr-10 py-2.5 text-base border border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-lg appearance-none">
+                                    <option value="gewechat">GeWechat</option>
+                                    <option value="wx">微信</option>
+                                    <option value="wechatmp">微信公众号</option>
+                                    <option value="wechatmp_service">微信公众号服务</option>
+                                    <option value="wechatcom_app">企业微信应用</option>
+                                    <option value="wework">企业微信</option>
+                                    <option value="wechatcom_service">企业微信服务</option>
+                                    <option value="feishu">飞书</option>
+                                    <option value="dingtalk">钉钉</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">模型</label>
+                            <div class="relative">
+                                <select v-model="config.model"
+                                        class="block w-full pl-3 pr-10 py-2.5 text-base border border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-lg appearance-none">
+                                    <option value="dify">Dify</option>
+                                    <option value="openai">OpenAI</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">调试模式</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="config.debug" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                                <span class="ml-3 text-sm font-medium text-gray-700">[[ config.debug ? '开启' : '关闭' ]]</span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label for="web_ui_port" class="block text-sm font-medium text-gray-700 mb-1">Web UI 端口</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-globe text-gray-400"></i>
+                                </div>
+                                <input type="number" id="web_ui_port" v-model.number="config.web_ui_port"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Web UI 访问设置 -->
+                <div class="settings-section">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                        <i class="fa-solid fa-user-lock text-primary-500 mr-2"></i>Web UI 访问设置
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="web_ui_username" class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-user text-gray-400"></i>
+                                </div>
+                                <input type="text" id="web_ui_username" v-model="config.web_ui_username"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="web_ui_password" class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-lock text-gray-400"></i>
+                                </div>
+                                <input type="password" id="web_ui_password" v-model="config.web_ui_password"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- GeWechat 配置 -->
+                <div v-if="config.channel_type === 'gewechat'" class="settings-section">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                        <i class="fa-brands fa-weixin text-primary-500 mr-2"></i>GeWechat 配置
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="gewechat_base_url" class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-link text-gray-400"></i>
+                                </div>
+                                <input type="text" id="gewechat_base_url" v-model="config.gewechat_base_url"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="https://example.com/api">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="gewechat_token" class="block text-sm font-medium text-gray-700 mb-1">Token</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-key text-gray-400"></i>
+                                </div>
+                                <input type="text" id="gewechat_token" v-model="config.gewechat_token"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="输入Token">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="gewechat_app_id" class="block text-sm font-medium text-gray-700 mb-1">App ID</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-id-card text-gray-400"></i>
+                                </div>
+                                <input type="text" id="gewechat_app_id" v-model="config.gewechat_app_id"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="输入App ID">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="gewechat_callback_url" class="block text-sm font-medium text-gray-700 mb-1">Callback URL</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-reply text-gray-400"></i>
+                                </div>
+                                <input type="text" id="gewechat_callback_url" v-model="config.gewechat_callback_url"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="https://example.com/callback">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="gewechat_download_url" class="block text-sm font-medium text-gray-700 mb-1">Download URL</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-download text-gray-400"></i>
+                                </div>
+                                <input type="text" id="gewechat_download_url" v-model="config.gewechat_download_url"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="https://example.com/download">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dify 配置 -->
+                <div class="settings-section">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                        <i class="fa-solid fa-robot text-primary-500 mr-2"></i>Dify 配置
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="dify_api_base" class="block text-sm font-medium text-gray-700 mb-1">API Base</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-server text-gray-400"></i>
+                                </div>
+                                <input type="text" id="dify_api_base" v-model="config.dify_api_base"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="https://api.dify.ai/v1">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="dify_api_key" class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-key text-gray-400"></i>
+                                </div>
+                                <input type="text" id="dify_api_key" v-model="config.dify_api_key"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="输入API Key">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">App Type</label>
+                            <div class="relative">
+                                <select v-model="config.dify_app_type"
+                                        class="block w-full pl-3 pr-10 py-2.5 text-base border border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-lg appearance-none">
+                                    <option value="chatbot">聊天机器人</option>
+                                    <option value="completion">完成</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 功能设置部分将在下一步添加 -->
+                
+                <!-- 功能设置 -->
+                <div class="settings-section">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                        <i class="fa-solid fa-puzzle-piece text-primary-500 mr-2"></i>功能设置
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- 语音识别 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <label for="speech_recognition" class="font-medium text-gray-700">语音识别</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="speech_recognition" v-model="config.speech_recognition" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                                </label>
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                [[ config.speech_recognition ? '已开启语音识别功能' : '语音识别功能已关闭' ]]
+                            </p>
+                        </div>
+                        
+                        <!-- 语音转文字服务 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                            <label class="block font-medium text-gray-700 mb-3">语音转文字服务</label>
+                            <div class="relative">
+                                <select v-model="config.voice_to_text"
+                                        class="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-lg appearance-none">
+                                    <option value="dify">Dify</option>
+                                    <option value="openai">OpenAI</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 图像识别 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <label for="image_recognition" class="font-medium text-gray-700">图像识别</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="image_recognition" v-model="config.image_recognition" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                                </label>
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                [[ config.image_recognition ? '已开启图像识别功能' : '图像识别功能已关闭' ]]
+                            </p>
+                        </div>
+                        
+                        <!-- 文本转语音 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                            <label class="block font-medium text-gray-700 mb-3">文本转语音</label>
+                            <div class="relative">
+                                <select v-model="config.text_to_voice"
+                                        class="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-lg appearance-none">
+                                    <option value="dify">Dify</option>
+                                    <option value="openai">OpenAI</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 语音回复语音 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <label for="voice_reply_voice" class="font-medium text-gray-700">语音回复语音</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="voice_reply_voice" v-model="config.voice_reply_voice" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                                </label>
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                [[ config.voice_reply_voice ? '收到语音时将以语音回复' : '收到语音将以文本回复' ]]
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 提示消息 -->
+    <div class="fixed bottom-4 right-4 flex items-center p-4 space-x-4 w-full max-w-xs text-gray-500 bg-white rounded-lg divide-x divide-gray-200 shadow-md space-x z-50 transition-all transform duration-300"
+         :class="{'translate-y-0 opacity-100': showToast, 'translate-y-10 opacity-0 pointer-events-none': !showToast}">
+        <div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-full"
+             :class="{'text-green-500 bg-green-100': toastSuccess, 'text-red-500 bg-red-100': !toastSuccess}">
+            <i class="fa-solid" :class="{'fa-check': toastSuccess, 'fa-xmark': !toastSuccess}"></i>
+        </div>
+        <div class="pl-4 text-sm font-normal">[[ toastMessage ]]</div>
+        <button type="button" @click="showToast = false" class="ml-4 inline-flex items-center justify-center h-8 w-8 rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const SettingsApp = {
+            delimiters: ['[[', ']]'],
+            data() {
+                return {
+                    config: {
+                        channel_type: 'gewechat',
+                        debug: false,
+                        dify_api_base: '',
+                        dify_api_key: '',
+                        dify_app_type: 'chatbot',
+                        gewechat_app_id: '',
+                        gewechat_base_url: '',
+                        gewechat_callback_url: '',
+                        gewechat_download_url: '',
+                        gewechat_token: '',
+                        group_chat_prefix: [],
+                        group_name_white_list: [],
+                        image_recognition: true,
+                        model: 'dify',
+                        nick_name_black_list: [],
+                        single_chat_prefix: [],
+                        single_chat_reply_prefix: '',
+                        speech_recognition: true,
+                        text_to_voice: 'dify',
+                        voice_reply_voice: true,
+                        voice_to_text: 'dify',
+                        web_ui_password: '',
+                        web_ui_port: 7860,
+                        web_ui_username: ''
+                    },
+                    loading: true,
+                    saving: false,
+                    showToast: false,
+                    toastMessage: '',
+                    toastSuccess: true,
+                    toastTimer: null,
+                    newSinglePrefix: '',
+                    newGroupPrefix: '',
+                    newGroupWhitelist: '',
+                    newNickBlacklist: ''
+                }
+            },
+            mounted() {
+                this.fetchConfig();
+            },
+            methods: {
+                fetchConfig() {
+                    this.loading = true;
+                    axios.get('/api/system_config')
+                        .then(response => {
+                            if (response.data.success && response.data.data) {
+                                // 确保数组字段正确初始化
+                                const data = response.data.data;
+                                this.config = {
+                                    ...this.config, // 保留默认值
+                                    ...data, // 使用服务器配置覆盖
+                                    // 确保这些字段是数组
+                                    single_chat_prefix: Array.isArray(data.single_chat_prefix) ? data.single_chat_prefix : [],
+                                    group_chat_prefix: Array.isArray(data.group_chat_prefix) ? data.group_chat_prefix : [],
+                                    group_name_white_list: Array.isArray(data.group_name_white_list) ? data.group_name_white_list : [],
+                                    nick_name_black_list: Array.isArray(data.nick_name_black_list) ? data.nick_name_black_list : []
+                                };
+                            } else {
+                                this.showToastMessage('获取配置失败', false);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('获取配置失败:', error);
+                            this.showToastMessage('获取配置失败', false);
+                        })
+                        .finally(() => {
+                            this.loading = false;
+                        });
+                },
+                saveConfig() {
+                    this.saving = true;
+                    axios.post('/api/system_config', this.config)
+                        .then(response => {
+                            if (response.data.success) {
+                                this.showToastMessage('配置保存成功', true);
+                            } else {
+                                this.showToastMessage(response.data.message || '保存失败', false);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('保存配置失败:', error);
+                            this.showToastMessage('保存配置失败', false);
+                        })
+                        .finally(() => {
+                            this.saving = false;
+                        });
+                },
+                addSinglePrefix() {
+                    const prefix = this.newSinglePrefix.trim();
+                    if (prefix && !this.config.single_chat_prefix.includes(prefix)) {
+                        this.config.single_chat_prefix.push(prefix);
+                        this.newSinglePrefix = '';
+                    }
+                },
+                addGroupPrefix() {
+                    const prefix = this.newGroupPrefix.trim();
+                    if (prefix && !this.config.group_chat_prefix.includes(prefix)) {
+                        this.config.group_chat_prefix.push(prefix);
+                        this.newGroupPrefix = '';
+                    }
+                },
+                addGroupWhitelist() {
+                    const group = this.newGroupWhitelist.trim();
+                    if (group && !this.config.group_name_white_list.includes(group)) {
+                        this.config.group_name_white_list.push(group);
+                        this.newGroupWhitelist = '';
+                    }
+                },
+                addNickBlacklist() {
+                    const nick = this.newNickBlacklist.trim();
+                    if (nick && !this.config.nick_name_black_list.includes(nick)) {
+                        this.config.nick_name_black_list.push(nick);
+                        this.newNickBlacklist = '';
+                    }
+                },
+                showToastMessage(message, success) {
+                    this.toastMessage = message;
+                    this.toastSuccess = success;
+                    this.showToast = true;
+                    
+                    if (this.toastTimer) {
+                        clearTimeout(this.toastTimer);
+                    }
+                    
+                    this.toastTimer = setTimeout(() => {
+                        this.showToast = false;
+                    }, 3000);
+                }
+            }
+        };
+        Vue.createApp(SettingsApp).mount('#settingsApp');
+    });
+</script>
+{% endblock %} 

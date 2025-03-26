@@ -1,12 +1,593 @@
 {
-  "keyword": {
-    "神器": {
-      "keywords": [
-        "神器",
-        "POS"
-      ],
-      "reply": "【最新神器】目前我司神器均可破小微超限，免费升级更换\n\n#必备 一机一码，可多商户\n👉安心付：https://wiki.zjkmkj.com/#/tool/axf \n👉快钱刷：https://wiki.zjkmkj.com/#/tool/kqs\n👉至尊宝：https://wiki.zjkmkj.com/#/tool/zzb\n👉合利宝：https://wiki.zjkmkj.com/#/tool/hlb  \n👉恒信通：https://wiki.zjkmkj.com/#/tool/hxt\n👉电银通：https://wiki.zjkmkj.com/#/tool/dyt\n👉盛付通：https://wiki.zjkmkj.com/#/tool/sftsqb\n\n#微信/支付宝\n👉综易付：https://wiki.zjkmkj.com/#/tool/zyf\n👉聚收银：https://wiki.zjkmkj.com/#/tool/jsy\n👉进钱吧：https://wiki.zjkmkj.com/#/tool/jqb\n👉拉卡拉：https://wiki.zjkmkj.com/#/tool/lkl\n\n#详细介绍\nhttps://wiki.zjkmkj.com/#/start/tool",
-      "match_type": "contains"
+    "keyword": {
+        "神器,机器,POS,玩法,超限,破小微": {
+            "keywords": [
+                "神器",
+                "机器",
+                "POS",
+                "玩法",
+                "超限",
+                "破小微"
+            ],
+            "match_type": "contains",
+            "reply": "【最新神器】目前我司神器均可破小微超限，免费升级更换\n\n#必备 一机一码，可多商户\n👉安心付：https://wiki.zjkmkj.com/#/tool/axf \n�快钱刷：https://wiki.zjkmkj.com/#/tool/kqs\n�至尊宝：https://wiki.zjkmkj.com/#/tool/zzb\n�合利宝：https://wiki.zjkmkj.com/#/tool/hlb  \n�恒信通：https://wiki.zjkmkj.com/#/tool/hxt\n�电银通：https://wiki.zjkmkj.com/#/tool/dyt\n�盛付通：https://wiki.zjkmkj.com/#/tool/sftsqb\n\n#微信/支付宝\n�综易付：https://wiki.zjkmkj.com/#/tool/zyf\n�聚收银：https://wiki.zjkmkj.com/#/tool/jsy\n�进钱吧：https://wiki.zjkmkj.com/#/tool/jqb\n�拉卡拉：https://wiki.zjkmkj.com/#/tool/lkl\n\n#详细介绍\nhttps://wiki.zjkmkj.com/#/start/tool"
+        },
+        "人工客服": {
+            "keywords": [
+                "人工客服"
+            ],
+            "match_type": "contains",
+            "reply": "【联系人工客服】http://u.zjkmkj.com/unVf1 \n\n#公众号：羊毛Plan\n#小程序：玩转神器"
+        },
+        "风控解读": {
+            "keywords": [
+                "风控解读"
+            ],
+            "match_type": "contains",
+            "reply": "【风控解读】\nhttps://wiki.zjkmkj.com/#/tool/skgf"
+        },
+        "微信认证": {
+            "keywords": [
+                "微信认证"
+            ],
+            "match_type": "contains",
+            "reply": "【微信认证】https://wiki.zjkmkj.com/#/tool/wxrz"
+        },
+        "支付宝认证": {
+            "keywords": [
+                "支付宝认证"
+            ],
+            "match_type": "contains",
+            "reply": "【支付宝认证】https://wiki.zjkmkj.com/#/tool/zfbrz"
+        },
+        "里程用途": {
+            "keywords": [
+                "里程用途"
+            ],
+            "match_type": "contains",
+            "reply": "【姿势】里程兑换轻松搞定\nhttps://wiki.zjkmkj.com/#/airline/syzs"
+        },
+        "扫码,微信,支付宝": {
+            "keywords": [
+                "扫码",
+                "微信",
+                "支付宝"
+            ],
+            "match_type": "contains",
+            "reply": "【扫码玩法】微/支风控极严，能否通过随缘。\n\n1、微信限额5万/号，可注册5个微信/人\n2、多码牌/多账户轮流刷，可减少风控\n3、切忌小额多笔频繁刷，尽量大额单笔\n\n#微信/支付宝\n\n�聚收银：https://wiki.zjkmkj.com/#/tool/jsy\n�综易付：https://wiki.zjkmkj.com/#/tool/zyf\n�进钱吧：https://wiki.zjkmkj.com/#/tool/jqb\n�拉卡拉：https://wiki.zjkmkj.com/#/tool/lkl\n\n#优先建议刷卡\n\n�安心付：https://wiki.zjkmkj.com/#/tool/axf \n�快钱刷：https://wiki.zjkmkj.com/#/tool/kqs\n�至尊宝：https://wiki.zjkmkj.com/#/tool/zzb\n�合利宝：https://wiki.zjkmkj.com/#/tool/hlb  \n�恒信通：https://wiki.zjkmkj.com/#/tool/hxt\n�电银通：https://wiki.zjkmkj.com/#/tool/dyt\n�盛付通：https://wiki.zjkmkj.com/#/tool/sftsqb"
+        },
+        "手续费费率涨价": {
+            "keywords": [
+                "手续费费率涨价"
+            ],
+            "match_type": "contains",
+            "reply": "【涨价提醒】 快汇宝/杉付宝/钱宝/金飞天/金中宝/金大宝/金小宝/开店宝/星云付/易碰碰/有钱收/钱小宝等产品都已涨价，请尽快更换为最新机器，免费送送送\n\n❗️涨价平台一览：https://wiki.zjkmkj.com/#/tool/zjyj\n\n�合利宝：https://wiki.zjkmkj.com/#/tool/hlb \n\n�恒信通：https://wiki.zjkmkj.com/#/tool/hxt\n\n�安心付：https://wiki.zjkmkj.com/#/tool/axf\n\n�至尊宝：https://wiki.zjkmkj.com/#/tool/zzb\n\n�快钱刷：https://wiki.zjkmkj.com/#/tool/kqs\n\n�电银通：https://wiki.zjkmkj.com/#/tool/dyt\n\n�盛付通：https://wiki.zjkmkj.com/#/tool/sftsqb\n\n如果已经被反撸，可尝试以下操作：\n\n投诉电话：12363\n拨打时间：9-17点，打的人比较多需要多打几次 \n投诉话术：代理商给我装的0.55%费率，实际刷卡扣了2.6% ，支付公司没有明确通知的情况下乱扣费，需要支付公司退回多扣手续费"
+        },
+        "盛刷": {
+            "keywords": [
+                "盛刷"
+            ],
+            "match_type": "contains",
+            "reply": "【已淘汰】盛刷，最新机器点我查看 \nhttps://wiki.zjkmkj.com/#/start/tool"
+        },
+        "盛付通": {
+            "keywords": [
+                "盛付通"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】盛付通，全行有分行业自选，可破小微\nhttps://wiki.zjkmkj.com/#/tool/sftsqb"
+        },
+        "电银通": {
+            "keywords": [
+                "电银通"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】电银通，可指定酒店/餐厅，可破小微限制\nhttps://wiki.zjkmkj.com/#/tool/dyt"
+        },
+        "恒信通": {
+            "keywords": [
+                "恒信通"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】恒信通，0.3%起全行有分，可指定酒店/餐厅，可破小微\nhttps://wiki.zjkmkj.com/#/tool/hxt"
+        },
+        "申鑫": {
+            "keywords": [
+                "申鑫"
+            ],
+            "match_type": "contains",
+            "reply": "【已淘汰】申鑫，最新机器点我查看 \nhttps://wiki.zjkmkj.com/#/start/tool"
+        },
+        "合利宝": {
+            "keywords": [
+                "合利宝"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】合利宝，稳定自选，可破小微\nhttps://wiki.zjkmkj.com/#/tool/hlb"
+        },
+        "至尊宝": {
+            "keywords": [
+                "至尊宝"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】至尊宝，可破小微，免费送送送\nhttps://wiki.zjkmkj.com/#/tool/zzb"
+        },
+        "安心付": {
+            "keywords": [
+                "安心付"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】安心付，可指定酒店/餐厅，支持运通人民币卡，可破小微限制\nhttps://wiki.zjkmkj.com/#/tool/axf"
+        },
+        "云付宝": {
+            "keywords": [
+                "云付宝"
+            ],
+            "match_type": "contains",
+            "reply": "【已淘汰】云付宝，最新神器点我查看 \nhttps://wiki.zjkmkj.com/#/start/tool"
+        },
+        "付惠码": {
+            "keywords": [
+                "付惠码"
+            ],
+            "match_type": "contains",
+            "reply": "【已淘汰】付惠码，最新神器点我查看：https://wiki.zjkmkj.com/#/start/tool"
+        },
+        "聚收银": {
+            "keywords": [
+                "聚收银"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】聚收银，多通道快捷+扫码，费率低破风控\nhttps://wiki.zjkmkj.com/#/tool/jsy"
+        },
+        "易收钱": {
+            "keywords": [
+                "易收钱"
+            ],
+            "match_type": "contains",
+            "reply": "【已淘汰】易收钱，最新神器点我查看\nhttps://wiki.zjkmkj.com/#/start/tool"
+        },
+        "钱小宝": {
+            "keywords": [
+                "钱小宝"
+            ],
+            "match_type": "contains",
+            "reply": "【已淘汰】钱小宝，最新机器点我查看\nhttps://wiki.zjkmkj.com/#/start/tool"
+        },
+        "卡友快刷": {
+            "keywords": [
+                "卡友快刷"
+            ],
+            "match_type": "contains",
+            "reply": "【已淘汰】卡友快刷，最新神器点我查看\nhttps://wiki.zjkmkj.com/#/start/tool"
+        },
+        "拉卡拉": {
+            "keywords": [
+                "拉卡拉"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】拉卡拉，微信支付宝必备神器\nhttps://wiki.zjkmkj.com/#/tool/lkl"
+        },
+        "积分": {
+            "keywords": [
+                "积分"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】积分规则\nhttps://wiki.zjkmkj.com/#/form/jfgz"
+        },
+        "高端卡": {
+            "keywords": [
+                "高端卡"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】高端卡一览\nhttps://wiki.zjkmkj.com/#/form/gdkyl"
+        },
+        "生日": {
+            "keywords": [
+                "生日"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行生日多倍积分一览\nhttps://wiki.zjkmkj.com/#/form/sr"
+        },
+        "加油权益": {
+            "keywords": [
+                "加油权益"
+            ],
+            "match_type": "contains",
+            "reply": "规则|各行加油权益玩法一览\nhttps://wiki.zjkmkj.com/#/tool/jyjy"
+        },
+        "航司里程有效期": {
+            "keywords": [
+                "航司里程有效期"
+            ],
+            "match_type": "contains",
+            "reply": "规则|航空公司里程有效期一览\nhttps://wiki.zjkmkj.com/#/form/lcyxq"
+        },
+        "里程兑换": {
+            "keywords": [
+                "里程兑换"
+            ],
+            "match_type": "contains",
+            "reply": "规则|各行积分兑换里程一览\nhttps://wiki.zjkmkj.com/#/form/lcdh"
+        },
+        "海航里程": {
+            "keywords": [
+                "海航里程"
+            ],
+            "match_type": "contains",
+            "reply": "规则|海航累计途径一览\nhttps://wiki.zjkmkj.com/#/form/hhlc"
+        },
+        "国航里程": {
+            "keywords": [
+                "国航里程"
+            ],
+            "match_type": "contains",
+            "reply": "规则|国航累计途径一览\nhttps://wiki.zjkmkj.com/#/form/ghlc"
+        },
+        "南航里程": {
+            "keywords": [
+                "南航里程"
+            ],
+            "match_type": "contains",
+            "reply": "规则|南航累计途径一览\nhttps://wiki.zjkmkj.com/#/form/nhlc"
+        },
+        "东航里程": {
+            "keywords": [
+                "东航里程"
+            ],
+            "match_type": "contains",
+            "reply": "规则|东航累计途径一览\nhttps://wiki.zjkmkj.com/#/form/dhlc"
+        },
+        "亚万里程": {
+            "keywords": [
+                "亚万里程"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】亚洲万里通累计途径一览\nhttps://wiki.zjkmkj.com/#/form/ywlc"
+        },
+        "星巴克权益": {
+            "keywords": [
+                "星巴克权益"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行免费星巴克一览\nhttps://wiki.zjkmkj.com/#/form/xbkqy"
+        },
+        "瑞幸咖啡权益": {
+            "keywords": [
+                "瑞幸咖啡权益"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行免费瑞幸咖啡一览\nhttps://wiki.zjkmkj.com/#/form/rxkfqy"
+        },
+        "不计积分平台": {
+            "keywords": [
+                "不计积分平台"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行不计积分支付公司一览\nhttps://wiki.zjkmkj.com/#/form/bjjfgz"
+        },
+        "积分价值": {
+            "keywords": [
+                "积分价值"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行信用卡积分价值一览\nhttps://wiki.zjkmkj.com/#/form/jfjz"
+        },
+        "接送机权益": {
+            "keywords": [
+                "接送机权益"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行免费境内外接送机（站）一览\nhttps://wiki.zjkmkj.com/#/form/jsjqy"
+        },
+        "值得办的信用卡": {
+            "keywords": [
+                "值得办的信用卡"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行值得办的信用卡一览\nhttps://wiki.zjkmkj.com/#/start/card"
+        },
+        "账单规则": {
+            "keywords": [
+                "账单规则"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行常账单日&免息期一览\nhttps://wiki.zjkmkj.com/#/form/zdgz"
+        },
+        "多倍积分": {
+            "keywords": [
+                "多倍积分"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行多倍积分权益一览\nhttps://wiki.zjkmkj.com/#/form/dbjf"
+        },
+        "体检权益": {
+            "keywords": [
+                "体检权益"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】体检权益一览\nhttps://wiki.zjkmkj.com/#/form/tjqy"
+        },
+        "境外返现": {
+            "keywords": [
+                "境外返现"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】境外返现一览\nhttps://wiki.zjkmkj.com/#/form/jwfx"
+        },
+        "龙腾/PP/空港易行等贵宾厅权益": {
+            "keywords": [
+                "龙腾/PP/空港易行等贵宾厅权益"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】龙腾/PP/空港易行等贵宾厅权益一览\nhttps://wiki.zjkmkj.com/#/form/gbtqy"
+        },
+        "延误险权益": {
+            "keywords": [
+                "延误险权益"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】各行延误险一览\nhttps://wiki.zjkmkj.com/#/form/ywxqy"
+        },
+        "代驾权益": {
+            "keywords": [
+                "代驾权益"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】代驾权益一览\nhttps://wiki.zjkmkj.com/#/form/djqy"
+        },
+        "代理": {
+            "keywords": [
+                "代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】加入浙江卡盟，开启躺赚生活\nhttps://wiki.zjkmkj.com/#/agent/jrkm"
+        },
+        "聚收银代理": {
+            "keywords": [
+                "聚收银代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】聚收银代理教程\nhttps://wiki.zjkmkj.com/#/agent/jsy"
+        },
+        "拉卡拉代理": {
+            "keywords": [
+                "拉卡拉代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】拉卡拉代理教程\nhttps://wiki.zjkmkj.com/#/agent/lkl"
+        },
+        "安心付代理": {
+            "keywords": [
+                "安心付代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】安心付代理教程\nhttps://wiki.zjkmkj.com/#/agent/axf"
+        },
+        "恒信通代理": {
+            "keywords": [
+                "恒信通代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】恒信通代理教程\nhttps://wiki.zjkmkj.com/#/agent/hxt"
+        },
+        "合利宝代理": {
+            "keywords": [
+                "合利宝代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】合利宝代理教程\nhttps://wiki.zjkmkj.com/#/agent/hlb"
+        },
+        "至尊宝代理": {
+            "keywords": [
+                "至尊宝代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】至尊宝代理教程\nhttps://wiki.zjkmkj.com/#/agent/zzb"
+        },
+        "盛付通代理": {
+            "keywords": [
+                "盛付通代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】盛付通代理教程\nhttps://wiki.zjkmkj.com/#/agent/sftsqb"
+        },
+        "云付宝代理": {
+            "keywords": [
+                "云付宝代理"
+            ],
+            "match_type": "contains",
+            "reply": "云付宝代理教程\nhttps://wiki.zjkmkj.com/#/agent/yfb"
+        },
+        "付惠码代理": {
+            "keywords": [
+                "付惠码代理"
+            ],
+            "match_type": "contains",
+            "reply": "【已淘汰】付惠码代理教程\nhttps://wiki.zjkmkj.com/#/agent/fhm"
+        },
+        "电银通代理": {
+            "keywords": [
+                "电银通代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】电银通代理教程 \nhttps://wiki.zjkmkj.com/#/agent/dyt"
+        },
+        "独立航司": {
+            "keywords": [
+                "独立航司"
+            ],
+            "match_type": "contains",
+            "reply": "攻略|玩转航司，积分里程权益轻松搞定\nhttps://wiki.zjkmkj.com/#/airline/dlhs"
+        },
+        "寰宇一家": {
+            "keywords": [
+                "寰宇一家"
+            ],
+            "match_type": "contains",
+            "reply": "攻略|玩转寰宇，会员/积分/权益全都要\nhttps://wiki.zjkmkj.com/#/airline/hyyj"
+        },
+        "天合联盟": {
+            "keywords": [
+                "天合联盟"
+            ],
+            "match_type": "contains",
+            "reply": "攻略|玩转天合联盟，享受超多会员福利\nhttps://wiki.zjkmkj.com/#/airline/thlm"
+        },
+        "星空联盟": {
+            "keywords": [
+                "星空联盟"
+            ],
+            "match_type": "contains",
+            "reply": "攻略|玩转星空联盟，积分里程权益多多\nhttps://wiki.zjkmkj.com/#/airline/xklm"
+        },
+        "权益回收变现": {
+            "keywords": [
+                "权益回收变现"
+            ],
+            "match_type": "contains",
+            "reply": "【变现】权益回收表格合集：\nhttps://wiki.zjkmkj.com/#/activity/qyhs"
+        },
+        "售后厂家维修返修": {
+            "keywords": [
+                "售后厂家维修返修"
+            ],
+            "match_type": "contains",
+            "reply": "【服务】机器售后返修（根据机器厂家选择）：\nhttps://wiki.zjkmkj.com/#/tool/shwx"
+        },
+        "万豪": {
+            "keywords": [
+                "万豪"
+            ],
+            "match_type": "contains",
+            "reply": "【酒店】万豪玩法 \nhttps://wiki.zjkmkj.com/#/hotel/wh"
+        },
+        "龙支付": {
+            "keywords": [
+                "龙支付"
+            ],
+            "match_type": "contains",
+            "reply": "目前暂无合适的龙支付产品，有合适机器会第一时间告知。"
+        },
+        "中国银行": {
+            "keywords": [
+                "中国银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】中行玩法：https://wiki.zjkmkj.com/#/bank/zgyh"
+        },
+        "综易付": {
+            "keywords": [
+                "综易付"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】综易付，一码11个通道，轻松破风控，支持微/支/云闪付\nhttps://wiki.zjkmkj.com/#/tool/zyf"
+        },
+        "综易付代理": {
+            "keywords": [
+                "综易付代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】综易付代理教程\nhttps://wiki.zjkmkj.com/#/agent/zyf"
+        },
+        "快钱刷": {
+            "keywords": [
+                "快钱刷"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】快钱刷，全能积分神器，可破小微\nhttps://wiki.zjkmkj.com/#/tool/kqs"
+        },
+        "快钱刷代理": {
+            "keywords": [
+                "快钱刷代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】快钱刷代理教程https://wiki.zjkmkj.com/#/agent/kqs"
+        },
+        "账单日,免息期": {
+            "keywords": [
+                "账单日",
+                "免息期"
+            ],
+            "match_type": "contains",
+            "reply": "【表格】账单规则 https://wiki.zjkmkj.com/#/form/zdgz"
+        },
+        "进钱吧": {
+            "keywords": [
+                "进钱吧"
+            ],
+            "match_type": "contains",
+            "reply": "【免费送】唯一扫码笔笔变商户神器\nhttps://wiki.zjkmkj.com/#/tool/jqb"
+        },
+        "进钱吧代理": {
+            "keywords": [
+                "进钱吧代理"
+            ],
+            "match_type": "contains",
+            "reply": "【代理】进钱吧代理教程 https://wiki.zjkmkj.com/#/agent/jqb"
+        },
+        "民生银行": {
+            "keywords": [
+                "民生银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】 民生专用：https://wiki.zjkmkj.com/#/tool/mszy"
+        },
+        "广发银行": {
+            "keywords": [
+                "广发银行"
+            ],
+            "match_type": "contains",
+            "reply": "【广发】 广发专用：https://wiki.zjkmkj.com/#/tool/gfzy"
+        },
+        "光大银行": {
+            "keywords": [
+                "光大银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】 光大专用：https://wiki.zjkmkj.com/#/tool/gdzy"
+        },
+        "兴业银行": {
+            "keywords": [
+                "兴业银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】 兴业专用：https://wiki.zjkmkj.com/#/tool/xyzy"
+        },
+        "华夏银行": {
+            "keywords": [
+                "华夏银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】 华夏专用：https://wiki.zjkmkj.com/#/tool/hxzy"
+        },
+        "邮储银行": {
+            "keywords": [
+                "邮储银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】 邮储专用：https://wiki.zjkmkj.com/#/tool/yczy"
+        },
+        "招商银行": {
+            "keywords": [
+                "招商银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】 招商专用：https://wiki.zjkmkj.com/#/tool/zhzy"
+        },
+        "浦发银行": {
+            "keywords": [
+                "浦发银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】 浦发专用：https://wiki.zjkmkj.com/#/tool/pfzy"
+        },
+        "中信银行": {
+            "keywords": [
+                "中信银行"
+            ],
+            "match_type": "contains",
+            "reply": "【银行】 中信专用：https://wiki.zjkmkj.com/#/tool/zxzy"
+        }
     }
-  }
 }
