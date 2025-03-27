@@ -73,10 +73,6 @@ install_dependencies() {
     # 检查依赖
     print_blue "检查项目依赖..."
     
-    # 安装基础依赖
-    print_yellow "安装必要的依赖 psutil..."
-    pip3 install psutil
-    
     # 检查其他依赖
     if [ ! -f "requirements.txt" ]; then
         print_red "错误: 未找到 requirements.txt 文件"
@@ -107,21 +103,48 @@ check_python_env() {
     install_dependencies "$force"
 }
 
+# 询问是否强制安装依赖
+ask_reinstall_deps() {
+    print_blue "是否需要强制重新安装所有依赖？(适用于首次安装或出现依赖问题时)"
+    echo "1. 不需要 [默认]"
+    echo "2. 需要"
+    echo ""
+    read -p "请选择 [1/2]: " reinstall_deps
+    reinstall_deps=${reinstall_deps:-1}
+
+    if [ "$reinstall_deps" = "2" ]; then
+        FORCE_REINSTALL=true
+        print_yellow "将强制重新安装所有依赖..."
+    else
+        FORCE_REINSTALL=false
+    fi
+    
+    return 0
+}
+
 # 前台启动函数
 start_local_foreground() {
-    local force=$1
-    print_green "前台模式启动 dify-on-wechat 服务..."
+    print_green "准备前台模式启动 dify-on-wechat 服务..."
+    
+    # 询问是否强制安装依赖
+    ask_reinstall_deps
+    
     cleanup_ports
-    check_python_env "$force"
+    check_python_env "$FORCE_REINSTALL"
+    print_green "前台模式启动 dify-on-wechat 服务..."
     python3 admin_ui.py
 }
 
 # 后台启动函数
 start_local_background() {
-    local force=$1
-    print_green "后台模式启动 dify-on-wechat 服务..."
+    print_green "准备后台模式启动 dify-on-wechat 服务..."
+    
+    # 询问是否强制安装依赖
+    ask_reinstall_deps
+    
     cleanup_ports
-    check_python_env "$force"
+    check_python_env "$FORCE_REINSTALL"
+    print_green "后台模式启动 dify-on-wechat 服务..."
     nohup python3 admin_ui.py > logs/admin_ui.log 2>&1 &
     print_green "服务已在后台启动，管理面板地址: http://localhost:7860"
     print_green "查看日志: tail -f logs/admin_ui.log"
@@ -198,24 +221,171 @@ start_docker_existing() {
 
 # 停止服务函数
 stop_service() {
-    print_blue "正在停止所有服务..."
+    print_blue "正在停止服务..."
     
-    # 停止本地运行的admin_ui.py进程
-    if ps -ef | grep admin_ui.py | grep -v grep > /dev/null; then
-        print_yellow "停止本地运行的进程..."
-        ps -ef | grep admin_ui.py | grep -v grep | awk '{print $2}' | xargs kill -9 2>/dev/null || print_red "没有运行中的admin_ui.py进程"
+    # 获取当前脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    print_blue "当前目录: ${SCRIPT_DIR}"
+    
+    # 停止本地运行的admin_ui.py和Bot.py进程
+    print_blue "查找并停止本程序相关进程..."
+    
+    # 直接查找占用7860和9919端口的进程并终止，这是最可靠的方法
+    print_blue "检查并终止占用7860和9919端口的进程..."
+    
+    # 处理7860端口
+    if lsof -i:7860 > /dev/null 2>&1; then
+        print_yellow "发现7860端口被占用，显示占用进程信息:"
+        lsof -i:7860 -n
+        
+        # 获取占用端口的PID
+        PORT_7860_PIDS=$(lsof -ti:7860)
+        for pid in $PORT_7860_PIDS; do
+            # 获取进程命令
+            CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
+            CMDNAME=$(ps -p $pid -o comm= 2>/dev/null || echo "未知")
+            
+            print_yellow "正在终止PID为 $pid 的进程 ($CMDNAME), 命令行: $CMD"
+            
+            # 先尝试使用SIGTERM优雅终止
+            kill -15 $pid 2>/dev/null
+            sleep 1
+            
+            # 检查进程是否仍然存在
+            if ps -p $pid > /dev/null 2>&1; then
+                print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
+                kill -9 $pid 2>/dev/null && print_green "已终止进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
+            else
+                print_green "已优雅终止进程 $pid"
+            fi
+        done
+    else
+        print_green "端口7860未被占用"
     fi
     
-    # 如果docker-compose可用，尝试停止docker服务
-    if command -v docker-compose &> /dev/null; then
-        print_yellow "停止Docker容器..."
-        docker-compose down 2>/dev/null || print_yellow "没有运行中的docker容器"
-    elif command -v docker &> /dev/null && command -v docker compose &> /dev/null; then
-        print_yellow "停止Docker容器..."
-        docker compose down 2>/dev/null || print_yellow "没有运行中的docker容器"
+    # 处理9919端口
+    if lsof -i:9919 > /dev/null 2>&1; then
+        print_yellow "发现9919端口被占用，显示占用进程信息:"
+        lsof -i:9919 -n
+        
+        # 获取占用端口的PID
+        PORT_9919_PIDS=$(lsof -ti:9919)
+        for pid in $PORT_9919_PIDS; do
+            # 获取进程命令
+            CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
+            CMDNAME=$(ps -p $pid -o comm= 2>/dev/null || echo "未知")
+            
+            print_yellow "正在终止PID为 $pid 的进程 ($CMDNAME), 命令行: $CMD"
+            
+            # 先尝试使用SIGTERM优雅终止
+            kill -15 $pid 2>/dev/null
+            sleep 1
+            
+            # 检查进程是否仍然存在
+            if ps -p $pid > /dev/null 2>&1; then
+                print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
+                kill -9 $pid 2>/dev/null && print_green "已终止进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
+            else
+                print_green "已优雅终止进程 $pid"
+            fi
+        done
+    else
+        print_green "端口9919未被占用"
     fi
-
-    print_green "所有dify-on-wechat服务已停止"
+    
+    # 特别查找并终止admin_ui.py和Bot.py进程
+    print_blue "查找并终止admin_ui.py和Bot.py进程..."
+    
+    # 使用多种方式查找进程，提高匹配成功率
+    ADMIN_UI_PIDS=$(ps -ef | grep -E "python3.*admin_ui\.py" | grep -v grep | awk '{print $2}')
+    BOT_PIDS=$(ps -ef | grep -E "python3.*Bot\.py" | grep -v grep | awk '{print $2}')
+    
+    # 处理admin_ui.py进程
+    if [ ! -z "$ADMIN_UI_PIDS" ]; then
+        for pid in $ADMIN_UI_PIDS; do
+            CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
+            print_yellow "找到admin_ui.py进程: PID=$pid, 命令: $CMD"
+            
+            # 终止进程
+            print_yellow "正在终止admin_ui.py进程 $pid..."
+            kill -15 $pid 2>/dev/null
+            sleep 1
+            
+            # 检查进程是否仍然存在
+            if ps -p $pid > /dev/null 2>&1; then
+                print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
+                kill -9 $pid 2>/dev/null && print_green "已终止admin_ui.py进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
+            else
+                print_green "已终止admin_ui.py进程 $pid"
+            fi
+        done
+    else
+        print_green "未找到admin_ui.py进程"
+    fi
+    
+    # 处理Bot.py进程
+    if [ ! -z "$BOT_PIDS" ]; then
+        for pid in $BOT_PIDS; do
+            CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
+            print_yellow "找到Bot.py进程: PID=$pid, 命令: $CMD"
+            
+            # 终止进程
+            print_yellow "正在终止Bot.py进程 $pid..."
+            kill -15 $pid 2>/dev/null
+            sleep 1
+            
+            # 检查进程是否仍然存在
+            if ps -p $pid > /dev/null 2>&1; then
+                print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
+                kill -9 $pid 2>/dev/null && print_green "已终止Bot.py进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
+            else
+                print_green "已终止Bot.py进程 $pid"
+            fi
+        done
+    else
+        print_green "未找到Bot.py进程"
+    fi
+    
+    # 如果docker-compose可用，尝试停止docker服务（仅限当前目录）
+    if [ -f "${SCRIPT_DIR}/docker-compose.yml" ]; then
+        print_blue "检测到docker-compose.yml，尝试停止Docker容器..."
+        
+        if command -v docker-compose &> /dev/null; then
+            cd "${SCRIPT_DIR}" && docker-compose ps 2>/dev/null
+            cd "${SCRIPT_DIR}" && docker-compose down 2>/dev/null && print_green "已停止Docker容器" || print_yellow "没有运行中的docker容器"
+        elif command -v docker &> /dev/null && command -v docker compose &> /dev/null; then
+            cd "${SCRIPT_DIR}" && docker compose ps 2>/dev/null
+            cd "${SCRIPT_DIR}" && docker compose down 2>/dev/null && print_green "已停止Docker容器" || print_yellow "没有运行中的docker容器"
+        fi
+    else
+        print_yellow "未找到docker-compose.yml，跳过Docker容器清理"
+    fi
+    
+    # 最终检查端口
+    sleep 2
+    print_blue "最终检查端口状态..."
+    PORT_7860_STILL_USED=$(lsof -i:7860 2>/dev/null)
+    PORT_9919_STILL_USED=$(lsof -i:9919 2>/dev/null)
+    
+    if [ ! -z "$PORT_7860_STILL_USED" ]; then
+        print_red "警告: 端口7860仍被占用:"
+        echo "$PORT_7860_STILL_USED"
+        print_yellow "尝试强制释放端口7860..."
+        lsof -ti:7860 | xargs kill -9 2>/dev/null || print_red "无法释放端口7860，请手动处理"
+    else
+        print_green "端口7860已成功释放"
+    fi
+    
+    if [ ! -z "$PORT_9919_STILL_USED" ]; then
+        print_red "警告: 端口9919仍被占用:"
+        echo "$PORT_9919_STILL_USED"
+        print_yellow "尝试强制释放端口9919..."
+        lsof -ti:9919 | xargs kill -9 2>/dev/null || print_red "无法释放端口9919，请手动处理"
+    else
+        print_green "端口9919已成功释放"
+    fi
+    
+    print_green "已完成停止服务操作"
 }
 
 # 查看日志函数
@@ -253,21 +423,6 @@ else
     print_yellow "未检测到Docker，Docker启动模式将不可用"
 fi
 
-# 强制重装依赖选项
-print_blue "是否需要强制重新安装所有依赖？(适用于首次安装或出现依赖问题时)"
-echo "1. 不需要 [默认]"
-echo "2. 需要"
-echo ""
-read -p "请选择 [1/2]: " reinstall_deps
-reinstall_deps=${reinstall_deps:-1}
-
-if [ "$reinstall_deps" = "2" ]; then
-    FORCE_REINSTALL=true
-    print_yellow "将强制重新安装所有依赖..."
-else
-    FORCE_REINSTALL=false
-fi
-
 # 主菜单
 print_blue "请选择启动模式:"
 echo "1. 本地启动 (前台运行) [默认]"
@@ -286,10 +441,10 @@ choice=${choice:-1}
 
 case $choice in
     1)
-        start_local_foreground "$FORCE_REINSTALL"
+        start_local_foreground
         ;;
     2)
-        start_local_background "$FORCE_REINSTALL"
+        start_local_background
         ;;
     3)
         if [ $DOCKER_AVAILABLE -eq 1 ]; then

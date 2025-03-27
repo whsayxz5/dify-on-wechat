@@ -473,47 +473,97 @@
         
         <!-- 规则列表将在接下来的步骤添加 -->
         <div v-if="Object.keys(filteredRules).length > 0">
-            <ul class="divide-y divide-gray-100">
-                <li v-for="(rule, ruleName) in paginatedRules" 
-                    :key="ruleName" 
-                    class="relative hover:bg-gray-50 transition-colors">
-                    <!-- 规则头部 -->
-                    <div class="flex items-center justify-between px-6 py-4 cursor-pointer" 
-                        @click="toggleRule(ruleName)">
-                        <div class="flex-1 mr-4">
-                            <h3 class="text-base font-medium text-gray-900 mb-1">[[ruleName]]</h3>
-                            <div class="flex flex-wrap items-center text-sm text-gray-500">
-                                <div class="flex items-center mr-4">
-                                    <i class="fa-solid fa-hashtag text-gray-400 mr-1.5"></i>
-                                    <span>[[rule.keywords.length]] 个关键词</span>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">序号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规则名称</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关键词</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">匹配类型</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">回复内容</th>
+                            <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <tr v-for="(rule, ruleName, index) in paginatedRules" :key="ruleName" class="hover:bg-gray-50">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-500">
+                                [[ (currentPage-1) * rulesPerPage + index + 1 ]]
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-900 font-medium">
+                                [[ ruleName ]]
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-500 max-w-xs">
+                                <div class="truncate" :title="rule.keywords.join(', ')">
+                                    [[ rule.keywords.join(', ') ]]
                                 </div>
-                                <div class="flex items-center">
-                                    <i class="fa-solid fa-filter text-gray-400 mr-1.5"></i>
-                                    <span>[[rule.match_type === 'exact' ? '精确匹配' : '模糊匹配']]</span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-500">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" 
+                                      :class="{'bg-blue-100 text-blue-800': rule.match_type === 'exact', 'bg-green-100 text-green-800': rule.match_type === 'contains'}">
+                                    [[ rule.match_type === 'exact' ? '精确匹配' : '模糊匹配' ]]
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-500 max-w-xs">
+                                <div class="truncate" :title="rule.reply">
+                                    [[ rule.reply ]]
                                 </div>
-                            </div>
-                        </div>
-                        <div class="flex items-center">
-                            <button @click.stop="deleteRule(ruleName)" 
-                                    class="p-1.5 text-gray-500 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 mr-1">
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
+                                <div class="flex justify-end space-x-2">
+                                    <button @click="toggleRule(ruleName)" 
+                                            class="p-1.5 text-gray-600 hover:text-primary-600 transition-colors rounded-full hover:bg-primary-50" 
+                                            :title="expandedRules[ruleName] ? '收起详情' : '编辑规则'">
+                                        <i class="fa-solid fa-edit"></i>
+                                    </button>
+                                    <button @click="deleteRule(ruleName)" 
+                                            class="p-1.5 text-gray-600 hover:text-red-600 transition-colors rounded-full hover:bg-red-50"
+                                            title="删除规则">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
-                            <div class="w-6 h-6 flex items-center justify-center text-gray-500">
-                                <i class="fa-solid" :class="expandedRules[ruleName] ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                             </div>
-                        </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
                     </div>
                     
-                    <!-- 展开内容 -->
+            <!-- 展开编辑部分 -->
+            <div v-for="(rule, ruleName) in filteredRules" :key="`edit-${ruleName}`">
                     <div v-if="expandedRules[ruleName]" 
-                        class="px-6 pb-6 pt-2 border-t border-gray-100 bg-gray-50">
+                    class="px-6 py-4 bg-gray-50 border-t border-b border-gray-200 mb-4">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">编辑规则: [[ ruleName ]]</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <!-- 规则名称 -->
-                        <div class="mb-4">
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">规则名称</label>
                             <input type="text" 
                                 v-model="editingRules[ruleName].name" 
                                 placeholder="输入规则名称" 
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                        </div>
+                        
+                        <!-- 匹配类型 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">匹配类型</label>
+                            <div class="flex gap-4">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" 
+                                           v-model="editingRules[ruleName].match_type" 
+                                           value="exact" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-700">精确匹配</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" 
+                                           v-model="editingRules[ruleName].match_type" 
+                                           value="contains" 
+                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-700">模糊匹配</span>
+                                </label>
+                            </div>
+                        </div>
                         </div>
                         
                         <!-- 关键词 -->
@@ -522,8 +572,8 @@
                             <div class="flex flex-wrap items-start gap-2 mb-2">
                                 <span v-for="(keyword, index) in editingRules[ruleName].keywords" 
                                       :key="index" 
-                                      class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
-                                    [[keyword]]
+                                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                [[ keyword ]]
                                     <button @click="removeKeyword(ruleName, index)" 
                                             class="ml-1.5 text-primary-500 hover:text-primary-700 focus:outline-none">
                                         <i class="fa-solid fa-xmark"></i>
@@ -547,27 +597,6 @@
                             </div>
                         </div>
                         
-                        <!-- 匹配类型 -->
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">匹配类型</label>
-                            <div class="flex gap-4">
-                                <label class="inline-flex items-center">
-                                    <input type="radio" 
-                                           v-model="editingRules[ruleName].match_type" 
-                                           value="exact" 
-                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
-                                    <span class="ml-2 text-sm text-gray-700">精确匹配</span>
-                                </label>
-                                <label class="inline-flex items-center">
-                                    <input type="radio" 
-                                           v-model="editingRules[ruleName].match_type" 
-                                           value="contains" 
-                                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
-                                    <span class="ml-2 text-sm text-gray-700">模糊匹配</span>
-                                </label>
-                            </div>
-                        </div>
-                        
                         <!-- 回复内容 -->
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">回复内容</label>
@@ -586,8 +615,7 @@
                             </button>
                         </div>
                     </div>
-                </li>
-            </ul>
+            </div>
             
             <!-- 分页控件 -->
             <div v-if="totalPages > 1" class="flex items-center justify-center space-x-1 pt-4 pb-6 bg-white px-6">
@@ -604,7 +632,7 @@
                         <button @click="goToPage(page)" 
                                 :class="{'bg-primary-100 text-primary-700': page === currentPage, 'text-gray-700 hover:bg-gray-100': page !== currentPage}"
                                 class="inline-flex items-center justify-center w-8 h-8 rounded focus:outline-none text-sm">
-                            [[page]]
+                            [[ page ]]
                         </button>
                     </template>
                     
@@ -625,21 +653,15 @@
         </div>
         
         <!-- 底部操作栏 -->
-        <div v-if="Object.keys(config.keyword).length > 0" class="flex items-center justify-between px-6 py-4 bg-white border-t border-gray-100">
-            <span class="text-sm text-gray-500">[[Object.keys(config.keyword).length]] 条规则</span>
-            <button @click="saveConfig" 
-                    :disabled="saving"
-                    class="flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <i :class="{'fa-solid fa-save mr-2': !saving, 'fa-solid fa-spinner fa-spin mr-2': saving}"></i>
-                [[saving ? '保存中...' : '保存全部配置']]
-            </button>
+        <div v-if="Object.keys(config.keyword).length > 0" class="flex items-center justify-between px-6 py-4 bg-white border-t border-gray-200">
+            <span class="text-sm text-gray-500">共 [[Object.keys(config.keyword).length]] 条规则</span>
         </div>
     </div>
 
     <!-- 其他组件将在后续步骤添加 -->
 
-    <!-- 新规则对话框 -->
-    <div v-if="showNewRuleModal"
+    <!-- 规则编辑/新增对话框 -->
+    <div v-if="showRuleModal"
          class="fixed inset-0 z-50 overflow-y-auto"
          aria-labelledby="modal-title"
          role="dialog"
@@ -653,9 +675,9 @@
                 <!-- 对话框头部 -->
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-medium leading-6 text-gray-900" id="modal-title">
-                        添加新规则
+                        [[isEditMode ? '编辑规则' : '添加新规则']]
                     </h3>
-                    <button @click="showNewRuleModal = false" class="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none">
+                    <button @click="closeRuleModal" class="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none">
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
@@ -666,7 +688,7 @@
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">规则名称</label>
                         <input type="text" 
-                            v-model="newRule.name" 
+                            v-model="currentRule.name" 
                             placeholder="输入规则名称" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
                     </div>
@@ -675,16 +697,16 @@
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">关键词</label>
                         <div class="flex flex-wrap items-start gap-2 mb-2 min-h-[36px]">
-                            <span v-for="(keyword, index) in newRule.keywords" 
+                            <span v-for="(keyword, index) in currentRule.keywords" 
                                   :key="index" 
                                   class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
                                 [[keyword]]
-                                <button @click="newRule.keywords.splice(index, 1)" 
+                                <button @click="currentRule.keywords.splice(index, 1)" 
                                         class="ml-1.5 text-primary-500 hover:text-primary-700 focus:outline-none">
                                     <i class="fa-solid fa-xmark"></i>
                                 </button>
                             </span>
-                            <span v-if="newRule.keywords.length === 0" 
+                            <span v-if="currentRule.keywords.length === 0" 
                                   class="text-sm text-gray-500 italic">
                                 请添加至少一个关键词
                             </span>
@@ -692,10 +714,10 @@
                         <div class="flex">
                             <input type="text" 
                                    v-model="newKeyword" 
-                                   @keyup.enter="addNewRuleKeyword" 
+                                   @keyup.enter="addCurrentRuleKeyword" 
                                    placeholder="输入关键词" 
                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                            <button @click="addNewRuleKeyword" 
+                            <button @click="addCurrentRuleKeyword" 
                                     class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-r-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                                 添加
                             </button>
@@ -708,14 +730,14 @@
                         <div class="flex gap-4">
                             <label class="inline-flex items-center">
                                 <input type="radio" 
-                                       v-model="newRule.match_type" 
+                                       v-model="currentRule.match_type" 
                                        value="exact" 
                                        class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
                                 <span class="ml-2 text-sm text-gray-700">精确匹配</span>
                             </label>
                             <label class="inline-flex items-center">
                                 <input type="radio" 
-                                       v-model="newRule.match_type" 
+                                       v-model="currentRule.match_type" 
                                        value="contains" 
                                        class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
                                 <span class="ml-2 text-sm text-gray-700">模糊匹配</span>
@@ -726,7 +748,7 @@
                     <!-- 回复内容 -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">回复内容</label>
-                        <textarea v-model="newRule.reply" 
+                        <textarea v-model="currentRule.reply" 
                                   rows="4" 
                                   placeholder="输入回复内容" 
                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"></textarea>
@@ -735,15 +757,16 @@
                 
                 <!-- 对话框底部按钮 -->
                 <div class="mt-5 sm:mt-6 flex justify-end gap-3">
-                    <button @click="showNewRuleModal = false" 
+                    <button @click="closeRuleModal" 
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                         取消
                     </button>
-                    <button @click="createNewRule" 
-                            :disabled="!newRule.name || newRule.keywords.length === 0 || !newRule.reply"
-                            :class="{'opacity-50 cursor-not-allowed': !newRule.name || newRule.keywords.length === 0 || !newRule.reply}"
+                    <button @click="saveCurrentRule" 
+                            :disabled="!currentRule.name || currentRule.keywords.length === 0 || !currentRule.reply"
+                            :class="{'opacity-50 cursor-not-allowed': !currentRule.name || currentRule.keywords.length === 0 || !currentRule.reply}"
                             class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                        创建规则
+                        <i :class="{'fa-solid fa-save mr-2': !saving, 'fa-solid fa-spinner fa-spin mr-2': saving}"></i>
+                        [[saving ? '保存中...' : '保存']]
                     </button>
                 </div>
             </div>
@@ -783,7 +806,15 @@
                         reply: ''
                     },
                     newKeyword: '',
-                    showNewRuleModal: false,
+                    showRuleModal: false,
+                    isEditMode: false,
+                    originalRuleName: '',
+                    currentRule: {
+                        name: '',
+                        keywords: [],
+                        match_type: 'exact',
+                        reply: ''
+                    },
                     saving: false,
                     showToast: false,
                     toastMessage: '',
@@ -802,6 +833,7 @@
                     const result = {};
                     for (const ruleName in this.config.keyword) {
                         const rule = this.config.keyword[ruleName];
+                        
                         // 搜索规则名
                         if (ruleName.toLowerCase().includes(query)) {
                             result[ruleName] = rule;
@@ -857,18 +889,6 @@
                         .then(response => {
                             if (response.data.status === 'success') {
                                 this.config = response.data.data || { keyword: {} };
-                                
-                                // 初始化编辑状态
-                                this.expandedRules = {};
-                                this.editingRules = {};
-                                this.newKeywords = {};
-                                
-                                for (const ruleName in this.config.keyword) {
-                                    this.expandedRules[ruleName] = false;
-                                    this.editingRules[ruleName] = JSON.parse(JSON.stringify(this.config.keyword[ruleName]));
-                                    this.editingRules[ruleName].name = ruleName;
-                                    this.newKeywords[ruleName] = '';
-                                }
                             } else {
                                 this.showToastMessage('加载配置失败', false);
                             }
@@ -879,159 +899,151 @@
                         });
                 },
                 toggleRule(ruleName) {
-                    if (!this.expandedRules[ruleName]) {
-                        this.expandedRules = Object.keys(this.expandedRules).reduce((obj, key) => {
-                            obj[key] = key === ruleName;
-                            return obj;
-                        }, {});
-                    } else {
-                        this.expandedRules[ruleName] = !this.expandedRules[ruleName];
-                    }
+                    // 在弹窗中打开编辑
+                    this.openEditModal(ruleName);
                 },
-                addKeyword(ruleName) {
-                    const keyword = this.newKeywords[ruleName].trim();
-                    if (keyword && !this.editingRules[ruleName].keywords.includes(keyword)) {
-                        this.editingRules[ruleName].keywords.push(keyword);
-                        this.newKeywords[ruleName] = '';
-                    }
+                openEditModal(ruleName) {
+                    const rule = this.config.keyword[ruleName];
+                    this.isEditMode = true;
+                    this.originalRuleName = ruleName;
+                    this.currentRule = {
+                        name: ruleName,
+                        keywords: [...rule.keywords],
+                        match_type: rule.match_type,
+                        reply: rule.reply
+                    };
+                    this.showRuleModal = true;
                 },
-                removeKeyword(ruleName, index) {
-                    this.editingRules[ruleName].keywords.splice(index, 1);
-                },
-                saveRuleEdit(ruleName) {
-                    const newName = this.editingRules[ruleName].name.trim();
-                    if (!newName) {
-                        this.showToastMessage('规则名称不能为空', false);
-                        return;
-                    }
-                    
-                    if (this.editingRules[ruleName].keywords.length === 0) {
-                        this.showToastMessage('至少需要一个关键词', false);
-                        return;
-                    }
-                    
-                    if (!this.editingRules[ruleName].reply) {
-                        this.showToastMessage('回复内容不能为空', false);
-                        return;
-                    }
-                    
-                    // 如果修改了规则名称，需要删除旧规则并创建新规则
-                    if (newName !== ruleName) {
-                        // 检查新名称是否已存在
-                        if (this.config.keyword[newName] && newName !== ruleName) {
-                            this.showToastMessage(`规则 "${newName}" 已存在`, false);
-                            return;
-                        }
-                        
-                        const ruleData = {
-                            keywords: this.editingRules[ruleName].keywords,
-                            match_type: this.editingRules[ruleName].match_type,
-                            reply: this.editingRules[ruleName].reply
-                        };
-                        
-                        // 删除旧规则
-                        delete this.config.keyword[ruleName];
-                        delete this.expandedRules[ruleName];
-                        delete this.editingRules[ruleName];
-                        delete this.newKeywords[ruleName];
-                        
-                        // 创建新规则
-                        this.config.keyword[newName] = ruleData;
-                        this.expandedRules[newName] = true;
-                        this.editingRules[newName] = {
-                            name: newName,
-                            ...ruleData
-                        };
-                        this.newKeywords[newName] = '';
-                    } else {
-                        // 只更新规则内容
-                        this.config.keyword[ruleName] = {
-                            keywords: this.editingRules[ruleName].keywords,
-                            match_type: this.editingRules[ruleName].match_type,
-                            reply: this.editingRules[ruleName].reply
-                        };
-                    }
-                    
-                    this.showToastMessage('规则保存成功', true);
-                },
-                deleteRule(ruleName) {
-                    if (confirm(`确定要删除规则 "${ruleName}" 吗？`)) {
-                        delete this.config.keyword[ruleName];
-                        delete this.expandedRules[ruleName];
-                        delete this.editingRules[ruleName];
-                        delete this.newKeywords[ruleName];
-                        this.showToastMessage('规则删除成功', true);
-                    }
-                },
-                addNewRule() {
-                    this.newRule = {
+                closeRuleModal() {
+                    this.showRuleModal = false;
+                    this.isEditMode = false;
+                    this.originalRuleName = '';
+                    this.currentRule = {
                         name: '',
                         keywords: [],
                         match_type: 'exact',
                         reply: ''
                     };
                     this.newKeyword = '';
-                    this.showNewRuleModal = true;
                 },
-                addNewRuleKeyword() {
+                addCurrentRuleKeyword() {
                     const keyword = this.newKeyword.trim();
-                    if (keyword && !this.newRule.keywords.includes(keyword)) {
-                        this.newRule.keywords.push(keyword);
+                    if (keyword && !this.currentRule.keywords.includes(keyword)) {
+                        this.currentRule.keywords.push(keyword);
                         this.newKeyword = '';
                     }
                 },
-                createNewRule() {
-                    const ruleName = this.newRule.name.trim();
+                saveCurrentRule() {
+                    const ruleName = this.currentRule.name.trim();
                     if (!ruleName) {
                         this.showToastMessage('规则名称不能为空', false);
                         return;
                     }
                     
-                    if (this.newRule.keywords.length === 0) {
+                    if (this.currentRule.keywords.length === 0) {
                         this.showToastMessage('至少需要一个关键词', false);
                         return;
                     }
                     
-                    if (!this.newRule.reply) {
+                    if (!this.currentRule.reply) {
                         this.showToastMessage('回复内容不能为空', false);
                         return;
                     }
                     
-                    if (this.config.keyword[ruleName]) {
-                        this.showToastMessage(`规则 "${ruleName}" 已存在`, false);
-                        return;
+                    // 如果是编辑模式且修改了规则名称，需要检查新名称是否已存在
+                    if (this.isEditMode && ruleName !== this.originalRuleName) {
+                        if (this.config.keyword[ruleName] && ruleName !== this.originalRuleName) {
+                            this.showToastMessage(`规则 "${ruleName}" 已存在`, false);
+                            return;
+                        }
                     }
                     
-                    this.config.keyword[ruleName] = {
-                        keywords: this.newRule.keywords,
-                        match_type: this.newRule.match_type,
-                        reply: this.newRule.reply
+                    this.saving = true;
+                    
+                    // 准备要保存的规则数据
+                    const ruleData = {
+                        keywords: this.currentRule.keywords,
+                        match_type: this.currentRule.match_type,
+                        reply: this.currentRule.reply
                     };
                     
-                    this.expandedRules[ruleName] = false;
-                    this.editingRules[ruleName] = JSON.parse(JSON.stringify(this.newRule));
-                    this.newKeywords[ruleName] = '';
+                    // 如果是编辑模式且修改了规则名称，需要删除旧规则
+                    if (this.isEditMode && ruleName !== this.originalRuleName) {
+                        delete this.config.keyword[this.originalRuleName];
+                    }
                     
-                    this.showNewRuleModal = false;
-                    this.showToastMessage('创建规则成功', true);
+                    // 更新配置
+                    this.config.keyword[ruleName] = ruleData;
+                    
+                    // 保存单条规则到服务器
+                    this.saveSingleRule(ruleName, ruleData);
                 },
-                saveConfig() {
-                    this.saving = true;
-                    axios.post('/api/update_autoreply_config', this.config)
+                saveSingleRule(ruleName, ruleData) {
+                    // 保存完整配置，确保不会丢失其他规则
+                    // 注意：服务器API需要完整的配置对象
+                    const saveData = {
+                        keyword: {...this.config.keyword}
+                    };
+                    
+                    // 将当前修改的规则添加到配置中
+                    saveData.keyword[ruleName] = ruleData;
+                    
+                    axios.post('/api/update_autoreply_config', saveData)
                         .then(response => {
                             if (response.data.status === 'success') {
-                                this.showToastMessage('配置保存成功', true);
+                                this.showToastMessage(this.isEditMode ? '规则已更新' : '规则已创建', true);
+                                this.closeRuleModal();
                             } else {
                                 this.showToastMessage(response.data.message || '保存失败', false);
                             }
                         })
                         .catch(error => {
-                            console.error('保存配置失败:', error);
-                            this.showToastMessage('保存配置失败', false);
+                            console.error('保存规则失败:', error);
+                            this.showToastMessage('保存规则失败', false);
                         })
                         .finally(() => {
                             this.saving = false;
                         });
+                },
+                deleteRule(ruleName) {
+                    if (confirm(`确定要删除规则 "${ruleName}" 吗？`)) {
+                        // 从配置中删除规则
+                        delete this.config.keyword[ruleName];
+                        
+                        // 保存到服务器 (保存完整配置)
+                        this.saving = true;
+                        const saveData = { 
+                            keyword: {...this.config.keyword},
+                            delete_rule: ruleName
+                        };
+                        
+                        axios.post('/api/update_autoreply_config', saveData)
+                            .then(response => {
+                                if (response.data.status === 'success') {
+                                    this.showToastMessage('规则已删除', true);
+                                } else {
+                                    this.showToastMessage(response.data.message || '删除失败', false);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('删除规则失败:', error);
+                                this.showToastMessage('删除规则失败', false);
+                            })
+                            .finally(() => {
+                                this.saving = false;
+                            });
+                    }
+                },
+                addNewRule() {
+                    this.isEditMode = false;
+                    this.currentRule = {
+                        name: '',
+                        keywords: [],
+                        match_type: 'exact',
+                        reply: ''
+                    };
+                    this.newKeyword = '';
+                    this.showRuleModal = true;
                 },
                 triggerImport() {
                     document.getElementById('fileInput').click();
@@ -1045,7 +1057,8 @@
                         try {
                             const text = e.target.result;
                             const lines = text.split('\n');
-                            const newConfig = { keyword: {} };
+                            const importedRules = {};
+                            let importCount = 0;
                             
                             for (let i = 1; i < lines.length; i++) {
                                 if (!lines[i].trim()) continue;
@@ -1059,7 +1072,7 @@
                                     const char = lines[i][j];
                                     
                                     if (char === '"') {
-                                        if (inQuotes && j < lines[i].length - 1 && lines[i][j + 1] === '"') {
+                                        if (j < lines[i].length - 1 && lines[i][j + 1] === '"') {
                                             currentField += '"';
                                             j++;
                                         } else {
@@ -1081,32 +1094,60 @@
                                     const reply = fields[3].trim().replace(/\\n/g, '\n');
                                     
                                     if (ruleName && keywordsStr) {
-                                        const keywords = keywordsStr.split(',').map(k => k.trim());
-                                        newConfig.keyword[ruleName] = {
+                                        const keywords = keywordsStr.split(',').map(k => k.trim()).filter(k => k);
+                                        importedRules[ruleName] = {
                                             keywords: keywords,
                                             match_type: matchType === 'exact' ? 'exact' : 'contains',
                                             reply: reply
                                         };
+                                        importCount++;
                                     }
                                 }
                             }
                             
-                            // 更新配置
-                            this.config = newConfig;
-                            
-                            // 重置编辑状态
-                            this.expandedRules = {};
-                            this.editingRules = {};
-                            this.newKeywords = {};
-                            
-                            for (const ruleName in this.config.keyword) {
-                                this.expandedRules[ruleName] = false;
-                                this.editingRules[ruleName] = JSON.parse(JSON.stringify(this.config.keyword[ruleName]));
-                                this.editingRules[ruleName].name = ruleName;
-                                this.newKeywords[ruleName] = '';
+                            if (importCount === 0) {
+                                this.showToastMessage('导入文件中未找到有效规则', false);
+                                return;
                             }
                             
-                            this.showToastMessage('配置导入成功', true);
+                            // 询问用户是否覆盖现有规则
+                            if (Object.keys(this.config.keyword).length > 0) {
+                                if (confirm(`导入包含 ${importCount} 条规则。是否覆盖现有规则？\n选择"确定"将替换所有规则，选择"取消"将合并规则（同名规则将被覆盖）`)) {
+                                    // 覆盖所有规则
+                                    this.config.keyword = {...importedRules};
+                                } else {
+                                    // 合并规则（保留现有规则，并用导入的同名规则覆盖）
+                                    for (const ruleName in importedRules) {
+                                        this.config.keyword[ruleName] = importedRules[ruleName];
+                                    }
+                                }
+                            } else {
+                                // 没有现有规则，直接导入
+                                this.config.keyword = {...importedRules};
+                            }
+                            
+                            // 准备完整配置数据
+                            const saveData = {
+                                keyword: this.config.keyword
+                            };
+                            
+                            // 直接保存导入的配置到服务器
+                            this.saving = true;
+                            axios.post('/api/update_autoreply_config', saveData)
+                                .then(response => {
+                                    if (response.data.status === 'success') {
+                                        this.showToastMessage(`成功导入并保存 ${importCount} 条规则`, true);
+                                    } else {
+                                        this.showToastMessage(response.data.message || '导入失败', false);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('导入配置失败:', error);
+                                    this.showToastMessage('导入配置失败', false);
+                                })
+                                .finally(() => {
+                                    this.saving = false;
+                                });
                         } catch (error) {
                             console.error('解析CSV失败:', error);
                             this.showToastMessage('解析CSV失败: ' + error.message, false);

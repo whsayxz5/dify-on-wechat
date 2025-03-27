@@ -438,21 +438,21 @@
                 <div v-if="updateStatus.friend_updating" class="mb-2">
                     <div class="flex justify-between items-center mb-1">
                         <span class="text-xs text-gray-600">好友更新中...</span>
-                        <span class="text-xs text-gray-600">[[updateStatus.friend_current]]/[[updateStatus.friend_total]]</span>
+                        <span class="text-xs text-gray-600">[[updateStatus.friend_update_progress]]/[[updateStatus.friend_total]]</span>
                     </div>
                     <div class="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
                         <div class="h-full bg-blue-500 rounded-full" 
-                             :style="{width: (updateStatus.friend_current / updateStatus.friend_total * 100) + '%'}"></div>
+                             :style="{width: (updateStatus.friend_update_progress / updateStatus.friend_total * 100) + '%'}"></div>
                     </div>
                 </div>
                 <div v-if="updateStatus.group_updating">
                     <div class="flex justify-between items-center mb-1">
                         <span class="text-xs text-gray-600">群组更新中...</span>
-                        <span class="text-xs text-gray-600">[[updateStatus.group_current]]/[[updateStatus.group_total]]</span>
+                        <span class="text-xs text-gray-600">[[updateStatus.group_update_progress]]/[[updateStatus.group_total]]</span>
                     </div>
                     <div class="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
                         <div class="h-full bg-green-500 rounded-full" 
-                             :style="{width: (updateStatus.group_current / updateStatus.group_total * 100) + '%'}"></div>
+                             :style="{width: (updateStatus.group_update_progress / updateStatus.group_total * 100) + '%'}"></div>
                     </div>
                 </div>
             </div>
@@ -667,10 +667,10 @@
                     updateStatus: {
                         friend_updating: false,
                         friend_total: 0,
-                        friend_current: 0,
+                        friend_update_progress: 0,
                         group_updating: false,
                         group_total: 0,
-                        group_current: 0
+                        group_update_progress: 0
                     },
                     statusTimer: null,
                     autoRefreshTimer: null
@@ -970,11 +970,109 @@
                             }
                         });
                         
+                        // 处理微信回调消息
+                        this.socket.on('wechat_callback', (callbackData) => {
+                            console.log('收到微信回调消息:', callbackData);
+                            this.handleWechatCallback(callbackData);
+                        });
+                        
                         this.socket.on('disconnect', () => {
                             console.log('WebSocket连接断开');
                         });
                     } catch (error) {
                         console.error('设置WebSocket失败:', error);
+                    }
+                },
+                
+                // 处理微信回调消息
+                handleWechatCallback(callbackData) {
+                    try {
+                        // 检查是否是消息类型
+                        if (callbackData.TypeName !== 'AddMsg') return;
+                        
+                        const messageData = callbackData.Data;
+                        if (!messageData) return;
+                        
+                        // 目前只处理文本消息
+                        if (messageData.MsgType !== 1) return;
+                        
+                        const fromUserName = messageData.FromUserName?.string;
+                        const toUserName = messageData.ToUserName?.string;
+                        const content = messageData.Content?.string;
+                        const createTime = messageData.CreateTime;
+                        
+                        if (!fromUserName || !content) return;
+                        
+                        // 判断消息方向：
+                        // 如果发送者是当前登录的微信ID，则是发出的消息
+                        // 否则是收到的消息
+                        const selfWxid = callbackData.Wxid; // 当前登录的微信ID
+                        const isSent = fromUserName === selfWxid;
+                        
+                        // 确定对话伙伴的wxid
+                        const partnerWxid = isSent ? toUserName : fromUserName;
+                        
+                        // 查找对应的联系人名称或群组名称
+                        let chatType = 'friend';
+                        let chatName = null;
+                        
+                        // 这里需要将wxid转换为对应的昵称
+                        this.getContactNameByWxid(partnerWxid).then(name => {
+                            if (name) {
+                                chatName = name;
+                                
+                                // 确定聊天类型（好友或群组）
+                                if (partnerWxid.endsWith('@chatroom')) {
+                                    chatType = 'group';
+                                }
+                                
+                                // 构建消息对象
+                                const newMessage = {
+                                    direction: isSent ? 'sent' : 'received',
+                                    content: content,
+                                    time: new Date(createTime * 1000)
+                                };
+                                
+                                // 如果当前正在查看该联系人/群组的聊天，直接添加消息到界面
+                                if (this.currentChat.type === chatType && this.currentChat.name === chatName) {
+                                    this.messages.push(newMessage);
+                                } else {
+                                    // 可以在这里添加消息通知或未读消息计数
+                                    console.log(`收到来自 ${chatName} 的新消息`);
+                                    
+                                    // 如果联系人不在当前列表中，刷新联系人列表
+                                    if ((chatType === 'friend' && !this.friends.includes(chatName)) ||
+                                        (chatType === 'group' && !this.groups.includes(chatName))) {
+                                        this.loadContacts();
+                                    }
+                                }
+                            } else {
+                                console.log('无法找到对应的联系人或群组:', partnerWxid);
+                                // 刷新联系人列表，尝试获取最新的联系人信息
+                                this.loadContacts();
+                            }
+                        }).catch(error => {
+                            console.error('获取联系人名称失败:', error);
+                        });
+                    } catch (error) {
+                        console.error('处理微信回调消息失败:', error);
+                    }
+                },
+                
+                // 根据wxid获取联系人或群组名称
+                async getContactNameByWxid(wxid) {
+                    try {
+                        // 调用API获取wxid对应的名称
+                        const response = await axios.get(`/api/contact_info?wxid=${encodeURIComponent(wxid)}`);
+                        if (response.data.success) {
+                            return response.data.data.name;
+                        } else {
+                            console.error('获取联系人信息失败:', response.data.message);
+                            return null;
+                        }
+                    } catch (error) {
+                        console.error('获取联系人信息请求失败:', error);
+                        return null;
                     }
                 },
                 

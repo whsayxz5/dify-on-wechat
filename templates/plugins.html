@@ -698,8 +698,7 @@
                                 this.plugins = response.data.plugins.map(plugin => ({
                                     ...plugin,
                                     processing: false,
-                                    description: plugin.description || '无描述',
-                                    active: plugin.active !== undefined ? plugin.active : plugin.enabled // 确保 active 状态正确
+                                    description: plugin.description || '无描述'
                                 }));
                                 console.log('插件列表:', this.plugins);
                             } else {
@@ -721,6 +720,9 @@
                 togglePlugin(plugin) {
                     plugin.processing = true;
                     
+                    // 发送API请求前先缓存当前状态，以便错误恢复
+                    const originalState = plugin.enabled;
+                    
                     axios.post(`/api/plugins/${plugin.name}/toggle`, {
                         enable: plugin.enabled
                     })
@@ -733,16 +735,18 @@
                                     this.showToastMessage(`插件 ${plugin.name} 已禁用，立即生效`, true);
                                 }
                                 
-                                // 重新获取插件列表，确保状态一致
+                                // 重新获取完整插件列表，确保状态一致
                                 this.fetchPlugins();
                             } else {
-                                plugin.enabled = !plugin.enabled; // 恢复原状态
+                                // 恢复原状态
+                                plugin.enabled = !plugin.enabled;
                                 this.showToastMessage(`切换插件状态失败: ${response.data.message || '未知错误'}`, false);
                             }
                         })
                         .catch(error => {
                             console.error('切换插件状态失败:', error);
-                            plugin.enabled = !plugin.enabled; // 恢复原状态
+                            // 恢复原状态
+                            plugin.enabled = !plugin.enabled;
                             this.showToastMessage('切换插件状态失败: ' + (error.response?.data?.message || error.message || '未知错误'), false);
                         })
                         .finally(() => {
@@ -761,7 +765,8 @@
                                 this.showToastMessage('插件安装成功，正在刷新列表...', true);
                                 this.showInstallModal = false;
                                 this.repoUrl = '';
-                                // 执行扫描插件操作
+                                
+                                // 安装成功后扫描插件，与godcmd一致
                                 this.scanPlugins();
                             } else {
                                 this.showToastMessage('安装插件失败: ' + (response.data.message || '未知错误'), false);
@@ -783,16 +788,16 @@
                                 if (!silent) {
                                     this.showToastMessage(response.data.message || '扫描插件成功', true);
                                 }
-                                this.fetchPlugins(); // 重新获取插件列表
+                                // 重新获取插件列表
+                                this.fetchPlugins();
                             } else {
                                 this.showToastMessage('扫描插件失败: ' + (response.data.message || '未知错误'), false);
+                                this.loading = false;
                             }
                         })
                         .catch(error => {
                             console.error('扫描插件失败:', error);
                             this.showToastMessage('扫描插件失败: ' + (error.response?.data?.message || error.message || '未知错误'), false);
-                        })
-                        .finally(() => {
                             this.loading = false;
                         });
                 },
@@ -802,6 +807,8 @@
                         .then(response => {
                             if (response.data.success) {
                                 this.showToastMessage(`插件 ${plugin.name} 更新成功`, true);
+                                // 重新获取插件列表
+                                this.fetchPlugins();
                             } else {
                                 this.showToastMessage(`更新插件失败: ${response.data.message || '未知错误'}`, false);
                             }
@@ -948,6 +955,8 @@
                                 this.priorityPlugin.priority = this.priorityValue;
                                 this.showToastMessage(`插件 ${this.priorityPlugin.name} 优先级已更新`, true);
                                 this.showPriorityModal = false;
+                                // 重新获取插件列表，确保状态一致
+                                this.fetchPlugins();
                             } else {
                                 this.showToastMessage(`设置优先级失败: ${response.data.message || '未知错误'}`, false);
                             }
@@ -970,35 +979,34 @@
                     this.showReloadModal = true;
                 },
                 reloadPlugins() {
-                    if (!this.reloading) {
-                        this.reloading = true;
-                        
-                        axios.post('/api/plugins/reload')
-                            .then(response => {
-                                if (response.data.success) {
-                                    let message = response.data.message;
-                                    if (response.data.partial) {
-                                        this.showToastMessage(message, false);
-                                    } else {
-                                        this.showToastMessage(message, true);
-                                    }
-                                    this.showReloadModal = false;
-                                    // 重新获取插件列表，显示最新状态
-                                    this.fetchPlugins();
+                    if (this.reloading) return;
+                    
+                    this.reloading = true;
+                    axios.post('/api/plugins/reload')
+                        .then(response => {
+                            if (response.data.success) {
+                                let message = response.data.message;
+                                if (response.data.partial) {
+                                    this.showToastMessage(message, false);
                                 } else {
-                                    this.showToastMessage('重新加载插件配置失败: ' + (response.data.message || '未知错误'), false);
-                                    this.showReloadModal = false;
+                                    this.showToastMessage(message, true);
                                 }
-                            })
-                            .catch(error => {
-                                console.error('重新加载插件配置失败:', error);
-                                this.showToastMessage('重新加载插件配置失败: ' + (error.response?.data?.message || error.message || '未知错误'), false);
                                 this.showReloadModal = false;
-                            })
-                            .finally(() => {
-                                this.reloading = false;
-                            });
-                    }
+                                // 重新获取插件列表，显示最新状态
+                                this.fetchPlugins();
+                            } else {
+                                this.showToastMessage('重新加载插件配置失败: ' + (response.data.message || '未知错误'), false);
+                                this.showReloadModal = false;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('重新加载插件配置失败:', error);
+                            this.showToastMessage('重新加载插件配置失败: ' + (error.response?.data?.message || error.message || '未知错误'), false);
+                            this.showReloadModal = false;
+                        })
+                        .finally(() => {
+                            this.reloading = false;
+                        });
                 },
                 reloadSinglePlugin(plugin) {
                     if (plugin.processing) return;
@@ -1007,9 +1015,7 @@
                     axios.post(`/api/plugins/${plugin.name}/reload`)
                         .then(response => {
                             if (response.data.success) {
-                                // 根据插件是否启用显示不同的提示消息
                                 this.showToastMessage(`插件 ${plugin.name} 配置已重载`, true);
-                                
                                 // 重新获取插件列表，确保状态一致
                                 this.fetchPlugins();
                             } else {
