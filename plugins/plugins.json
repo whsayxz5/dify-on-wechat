@@ -9,7 +9,7 @@
             "priority": 900
         },
         "Autoreply": {
-            "enabled": true,
+            "enabled": false,
             "priority": 900
         },
         "send_msg_ipad": {

@@ -3,7 +3,8 @@
         "万豪": {
             "keywords": [
                 "万豪",
-                "喜达屋"
+                "喜达屋",
+                "marriott"
             ],
             "match_type": "contains",
             "reply": "【酒店】万豪玩法 \nhttps://wiki.zjkmkj.com/#/hotel/wh"

@@ -51,11 +51,11 @@
                     <i class="fa-brands fa-weixin text-primary-500 mr-2"></i>微信状态
                 </h2>
                 <div class="flex gap-2">
-                    <button @click="loadStatus" class="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="刷新状态">
-                        <i class="fa-solid fa-arrows-rotate"></i>
+                    <button @click="restartWebPanel" class="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" :disabled="processing" title="重启面板">
+                        <i class="fa-solid fa-display"></i>
                     </button>
-                    <button @click="restartService" class="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" :disabled="processing" title="重启服务">
-                        <i class="fa-solid fa-refresh"></i>
+                    <button @click="restartService" class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" :disabled="processing" title="重启Bot">
+                        <i class="fa-solid fa-robot"></i>
                     </button>
                     <button v-if="status.is_online" @click="logoutGewechat" class="p-2 text-gray-500 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors" :disabled="processing" title="退出登录">
                         <i class="fa-solid fa-sign-out-alt"></i>
@@ -236,12 +236,12 @@
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="sm:flex sm:items-start">
                         <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                            <i class="fa-solid fa-arrows-rotate text-blue-600"></i>
+                            <i class="fa-solid fa-robot text-blue-600"></i>
                         </div>
                         <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">确认重启</h3>
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">确认重启Bot</h3>
                             <div class="mt-2">
-                                <p class="text-sm text-gray-500">确定要重启服务吗？重启过程可能需要几秒钟时间。</p>
+                                <p class="text-sm text-gray-500">确定要重启Bot服务吗？重启过程可能需要几秒钟时间，不会影响Web界面。</p>
                             </div>
                         </div>
                     </div>
@@ -297,6 +297,39 @@
         <div id="toast-icon" class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg"></div>
         <div class="pl-4 text-sm font-normal" id="toast-message"></div>
     </div>
+
+    <!-- 确认重启Web面板对话框 -->
+    <div v-if="showRestartWebPanelConfirm" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- 背景遮罩 -->
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showRestartWebPanelConfirm = false"></div>
+            
+            <!-- 模态框内容 -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fa-solid fa-display text-purple-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">确认重启Web面板</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">确定要重启Web面板吗？重启过程中页面将暂时不可访问，几秒钟后会自动刷新。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="confirmRestartWebPanel" :disabled="processing" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        确认重启
+                    </button>
+                    <button type="button" @click="showRestartWebPanelConfirm = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -317,6 +350,7 @@
                     },
                     showRestartConfirm: false,
                     showLogoutConfirm: false,
+                    showRestartWebPanelConfirm: false,
                     processing: false
                 }
             },
@@ -333,6 +367,32 @@
                         })
                         .catch(error => {
                             console.error('获取状态失败:', error);
+                        });
+                },
+                restartWebPanel() {
+                    this.showRestartWebPanelConfirm = true;
+                },
+                confirmRestartWebPanel() {
+                    this.processing = true;
+                    axios.post('/api/restart_webpanel')
+                        .then(response => {
+                            this.showRestartWebPanelConfirm = false;
+                            if (response.data.success) {
+                                this.showToast('Web面板正在重启，请等待几秒后刷新页面', 'success');
+                                // 5秒后自动刷新页面
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 5000);
+                            } else {
+                                this.showToast('重启Web面板失败: ' + response.data.message, 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('重启Web面板失败:', error);
+                            this.showToast('重启Web面板失败', 'error');
+                        })
+                        .finally(() => {
+                            this.processing = false;
                         });
                 },
                 restartService() {

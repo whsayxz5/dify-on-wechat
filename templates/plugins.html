@@ -17,19 +17,20 @@
         </h2>
         
         <div class="flex space-x-2">
-            <!-- 安装插件按钮 -->
-            <button @click="showInstallModal = true" 
-                    class="flex items-center px-4 py-2 bg-primary-600 border border-primary-600 rounded-full text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 transition-colors">
-                <i class="fa-solid fa-cloud-download-alt mr-1.5"></i>
-                <span>安装插件</span>
+            <!-- 重启Bot按钮 -->
+            <button @click="restartBot" 
+                    :disabled="restarting"
+                    class="flex items-center px-4 py-2 bg-red-600 border border-red-600 rounded-full text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                <i class="fa-solid mr-1.5" :class="{'fa-power-off': !restarting, 'fa-spinner fa-spin': restarting}"></i>
+                <span>[[ restarting ? '重启中...' : '重启Bot服务' ]]</span>
             </button>
             
-            <!-- 重新加载插件按钮 -->
+            <!-- 加载插件按钮 -->
             <button @click="confirmReload" 
                     :disabled="reloading"
                     class="flex items-center px-4 py-2 bg-blue-600 border border-blue-600 rounded-full text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                 <i class="fa-solid mr-1.5" :class="{'fa-sync': !reloading, 'fa-spinner fa-spin': reloading}"></i>
-                <span>[[ reloading ? '加载中...' : '重新加载插件配置' ]]</span>
+                <span>[[ reloading ? '加载中...' : '加载插件配置' ]]</span>
             </button>
             
             <!-- 刷新按钮 -->
@@ -39,6 +40,24 @@
                 <i class="fa-solid mr-1.5" :class="{'fa-arrows-rotate': !loading, 'fa-spinner fa-spin': loading}"></i>
                 <span>[[ loading ? '加载中...' : '刷新' ]]</span>
             </button>
+        </div>
+    </div>
+    
+    <!-- 功能提示区 -->
+    <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fa-solid fa-circle-info text-blue-400 mt-0.5"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-blue-800">插件管理功能说明</h3>
+                <div class="mt-2 text-sm text-blue-700">
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li>启用/禁用插件和修改插件配置后会自动重启Bot服务</li>
+                        <li>如需手动重启Bot服务，请点击"重启Bot服务"按钮</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -133,29 +152,6 @@
                             :title="'重载插件配置'"
                             class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i class="fa-solid fa-sync"></i>
-                    </button>
-                    
-                    <!-- 优先级设置按钮 -->
-                    <button @click="openPriorityModal(plugin)"
-                            title="设置优先级"
-                            class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                        <i class="fa-solid fa-layer-group"></i>
-                    </button>
-                    
-                    <!-- 更新按钮 -->
-                    <button v-if="!isPresetPlugin(plugin.name)" 
-                            @click="updatePlugin(plugin)"
-                            title="更新插件"
-                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                        <i class="fa-solid fa-cloud-download-alt"></i>
-                    </button>
-                    
-                    <!-- 卸载按钮 -->
-                    <button v-if="!isPresetPlugin(plugin.name)" 
-                            @click="confirmUninstall(plugin)"
-                            title="卸载插件"
-                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <i class="fa-solid fa-trash-alt"></i>
                     </button>
                 </div>
                 
@@ -398,11 +394,14 @@
                         </div>
                         <h3 class="text-lg font-medium text-gray-900 mb-2">确定要重新加载所有插件配置吗？</h3>
                         <p class="text-sm text-gray-600 mb-2">
-                            这个操作将重新加载所有插件的配置文件，适用于修改了配置文件但不想重启服务的情况。
+                            这个操作将重新加载所有插件的配置文件，并立即重启Bot服务。
                         </p>
-                        <p class="text-sm text-gray-600 font-medium">
-                            注意：插件的启用/禁用状态修改已经即时生效，通常不需要额外重载。
-                        </p>
+                        <div class="mt-3 p-3 bg-yellow-50 border border-yellow-100 rounded-md text-left">
+                            <p class="text-sm text-yellow-700 font-semibold">警告：</p>
+                            <p class="text-sm text-yellow-700 mt-1">
+                                重启Bot服务会中断当前所有微信功能，直到服务重新启动。如果有正在进行的会话，可能会被中断。
+                            </p>
+                        </div>
                     </div>
                 </div>
                 
@@ -418,7 +417,7 @@
                             :disabled="reloading"
                             class="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
                         <i class="fa-solid mr-1.5" :class="{'fa-sync': !reloading, 'fa-spinner fa-spin': reloading}"></i>
-                        [[ reloading ? '加载中...' : '确认加载' ]]
+                        [[ reloading ? '加载中...' : '确认加载并重启' ]]
                     </button>
                 </div>
             </div>
@@ -634,6 +633,7 @@
                     uninstalling: false,
                     savingPriority: false,
                     reloading: false,
+                    restarting: false,
                     repoUrl: '',
                     showToast: false,
                     toastMessage: '',
@@ -730,13 +730,15 @@
                             if (response.data.success) {
                                 // 更新页面上显示的状态
                                 if (plugin.enabled) {
-                                    this.showToastMessage(`插件 ${plugin.name} 已启用，立即生效`, true);
+                                    this.showToastMessage(`插件 ${plugin.name} 已启用，正在重启Bot服务...`, true);
                                 } else {
-                                    this.showToastMessage(`插件 ${plugin.name} 已禁用，立即生效`, true);
+                                    this.showToastMessage(`插件 ${plugin.name} 已禁用，正在重启Bot服务...`, true);
                                 }
                                 
                                 // 重新获取完整插件列表，确保状态一致
-                                this.fetchPlugins();
+                                setTimeout(() => {
+                                    this.fetchPlugins();
+                                }, 2000);
                             } else {
                                 // 恢复原状态
                                 plugin.enabled = !plugin.enabled;
@@ -751,6 +753,33 @@
                         })
                         .finally(() => {
                             plugin.processing = false;
+                        });
+                },
+                // 重启Bot服务
+                restartBot() {
+                    if (this.restarting) return;
+                    
+                    this.restarting = true;
+                    this.showToastMessage('正在重启Bot服务...', true);
+                    
+                    axios.post('/api/restart')
+                        .then(response => {
+                            if (response.data.success) {
+                                this.showToastMessage('Bot服务已重启', true);
+                                // 刷新插件列表以获取最新状态
+                                setTimeout(() => {
+                                    this.fetchPlugins();
+                                }, 2000);
+                            } else {
+                                this.showToastMessage(`重启失败: ${response.data.message || '未知错误'}`, false);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('重启Bot服务失败:', error);
+                            this.showToastMessage('重启Bot服务失败: ' + (error.response?.data?.message || error.message || '未知错误'), false);
+                        })
+                        .finally(() => {
+                            this.restarting = false;
                         });
                 },
                 installPlugin() {
@@ -915,8 +944,12 @@
                     axios.post(`/api/plugins/${this.currentPlugin.name}/config`, this.pluginConfig)
                         .then(response => {
                             if (response.data.success) {
-                                this.showToastMessage('配置保存成功', true);
-                                this.closeConfig();
+                                this.showToastMessage('配置保存成功，正在重启Bot服务...', true);
+                                setTimeout(() => {
+                                    this.closeConfig();
+                                    // 刷新插件列表
+                                    this.fetchPlugins();
+                                }, 2000);
                             } else {
                                 this.showToastMessage('配置保存失败: ' + (response.data.message || '未知错误'), false);
                             }
@@ -986,14 +1019,12 @@
                         .then(response => {
                             if (response.data.success) {
                                 let message = response.data.message;
-                                if (response.data.partial) {
-                                    this.showToastMessage(message, false);
-                                } else {
-                                    this.showToastMessage(message, true);
-                                }
+                                this.showToastMessage(message, true);
                                 this.showReloadModal = false;
                                 // 重新获取插件列表，显示最新状态
-                                this.fetchPlugins();
+                                setTimeout(() => {
+                                    this.fetchPlugins();
+                                }, 2000);
                             } else {
                                 this.showToastMessage('重新加载插件配置失败: ' + (response.data.message || '未知错误'), false);
                                 this.showReloadModal = false;
@@ -1015,9 +1046,11 @@
                     axios.post(`/api/plugins/${plugin.name}/reload`)
                         .then(response => {
                             if (response.data.success) {
-                                this.showToastMessage(`插件 ${plugin.name} 配置已重载`, true);
+                                this.showToastMessage(`插件 ${plugin.name} 配置已重载，正在重启Bot服务...`, true);
                                 // 重新获取插件列表，确保状态一致
-                                this.fetchPlugins();
+                                setTimeout(() => {
+                                    this.fetchPlugins();
+                                }, 2000);
                             } else {
                                 this.showToastMessage(`重载插件配置失败: ${response.data.message || '未知错误'}`, false);
                             }

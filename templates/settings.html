@@ -63,6 +63,12 @@
                                         class="block w-full pl-3 pr-10 py-2.5 text-base border border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-lg appearance-none">
                                     <option value="dify">Dify</option>
                                     <option value="openai">OpenAI</option>
+                                    <option value="wenxin">百度文心一言</option>
+                                    <option value="moonshot">Moonshot</option>
+                                    <option value="qwen-turbo">通义千问</option>
+                                    <option value="xunfei">讯飞星火</option>
+                                    <option value="glm-4">智谱GLM-4</option>
+                                    <option value="gemini">Google Gemini</option>
                                 </select>
                                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
                                     <i class="fa-solid fa-chevron-down"></i>
@@ -239,6 +245,155 @@
                     </div>
                 </div>
                 
+                <!-- 群组设置 -->
+                <div class="settings-section">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                        <i class="fa-solid fa-users text-primary-500 mr-2"></i>群组设置
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="group_chat_prefix" class="block text-sm font-medium text-gray-700 mb-1">群聊前缀</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="newGroupPrefix" v-model="newGroupPrefix" @keyup.enter="addGroupPrefix"
+                                       class="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="添加新群聊前缀...">
+                                <button @click="addGroupPrefix" 
+                                        class="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <div v-for="(prefix, index) in config.group_chat_prefix" :key="index" 
+                                     class="bg-gray-100 px-3 py-1 rounded-full flex items-center">
+                                    <span class="text-sm">[[ prefix ]]</span>
+                                    <button @click="config.group_chat_prefix.splice(index, 1)" 
+                                            class="ml-2 text-gray-500 hover:text-red-500">
+                                        <i class="fa-solid fa-times"></i>
+                                    </button>
+                                </div>
+                                <div v-if="config.group_chat_prefix.length === 0" class="text-sm text-gray-500 italic">
+                                    未设置群聊前缀
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="group_name_white_list" class="block text-sm font-medium text-gray-700 mb-1">群聊白名单</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="newGroupWhitelist" v-model="newGroupWhitelist" @keyup.enter="addGroupWhitelist"
+                                       class="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="添加群聊白名单...">
+                                <button @click="addGroupWhitelist" 
+                                        class="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <div v-for="(group, index) in config.group_name_white_list" :key="index" 
+                                     class="bg-gray-100 px-3 py-1 rounded-full flex items-center">
+                                    <span class="text-sm">[[ group ]]</span>
+                                    <button @click="config.group_name_white_list.splice(index, 1)" 
+                                            class="ml-2 text-gray-500 hover:text-red-500">
+                                        <i class="fa-solid fa-times"></i>
+                                    </button>
+                                </div>
+                                <div v-if="config.group_name_white_list.length === 0" class="text-sm text-gray-500 italic">
+                                    未设置群聊白名单
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <label for="no_need_at" class="font-medium text-gray-700">不需要@回复</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="no_need_at" v-model="config.no_need_at" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                                </label>
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                [[ config.no_need_at ? '群聊中回复不需要@发送者' : '群聊中回复会@发送者' ]]
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 私聊设置 -->
+                <div class="settings-section">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                        <i class="fa-solid fa-comment text-primary-500 mr-2"></i>私聊设置
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="single_chat_prefix" class="block text-sm font-medium text-gray-700 mb-1">私聊前缀</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="newSinglePrefix" v-model="newSinglePrefix" @keyup.enter="addSinglePrefix"
+                                       class="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="添加新私聊前缀...">
+                                <button @click="addSinglePrefix" 
+                                        class="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <div v-for="(prefix, index) in config.single_chat_prefix" :key="index" 
+                                     class="bg-gray-100 px-3 py-1 rounded-full flex items-center">
+                                    <span class="text-sm" v-if="prefix">[[ prefix ]]</span>
+                                    <span class="text-sm italic text-gray-500" v-else>空前缀</span>
+                                    <button @click="config.single_chat_prefix.splice(index, 1)" 
+                                            class="ml-2 text-gray-500 hover:text-red-500">
+                                        <i class="fa-solid fa-times"></i>
+                                    </button>
+                                </div>
+                                <div v-if="config.single_chat_prefix.length === 0" class="text-sm text-gray-500 italic">
+                                    未设置私聊前缀
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="single_chat_reply_prefix" class="block text-sm font-medium text-gray-700 mb-1">私聊回复前缀</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-reply text-gray-400"></i>
+                                </div>
+                                <input type="text" id="single_chat_reply_prefix" v-model="config.single_chat_reply_prefix"
+                                       class="pl-10 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="例如：[机器人]">
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">私聊回复时会在消息前添加此前缀，留空则不添加前缀</p>
+                        </div>
+                        
+                        <div>
+                            <label for="nick_name_black_list" class="block text-sm font-medium text-gray-700 mb-1">用户黑名单</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="newNickBlacklist" v-model="newNickBlacklist" @keyup.enter="addNickBlacklist"
+                                       class="flex-grow min-w-0 px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="添加黑名单用户...">
+                                <button @click="addNickBlacklist" 
+                                        class="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <div v-for="(nick, index) in config.nick_name_black_list" :key="index" 
+                                     class="bg-gray-100 px-3 py-1 rounded-full flex items-center">
+                                    <span class="text-sm">[[ nick ]]</span>
+                                    <button @click="config.nick_name_black_list.splice(index, 1)" 
+                                            class="ml-2 text-gray-500 hover:text-red-500">
+                                        <i class="fa-solid fa-times"></i>
+                                    </button>
+                                </div>
+                                <div v-if="config.nick_name_black_list.length === 0" class="text-sm text-gray-500 italic">
+                                    未设置用户黑名单
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- 功能设置部分将在下一步添加 -->
                 
                 <!-- 功能设置 -->
@@ -371,7 +526,8 @@
                         voice_to_text: 'dify',
                         web_ui_password: '',
                         web_ui_port: 7860,
-                        web_ui_username: ''
+                        web_ui_username: '',
+                        no_need_at: false
                     },
                     loading: true,
                     saving: false,
@@ -422,7 +578,8 @@
                     axios.post('/api/system_config', this.config)
                         .then(response => {
                             if (response.data.success) {
-                                this.showToastMessage('配置保存成功', true);
+                                this.showToastMessage('配置保存成功，正在重启Bot服务...', true);
+                                this.restartBot();
                             } else {
                                 this.showToastMessage(response.data.message || '保存失败', false);
                             }
@@ -433,6 +590,21 @@
                         })
                         .finally(() => {
                             this.saving = false;
+                        });
+                },
+                restartBot() {
+                    // 重启bot服务
+                    axios.post('/api/restart')
+                        .then(response => {
+                            if (response.data.success) {
+                                this.showToastMessage('Bot服务已重启', true);
+                            } else {
+                                this.showToastMessage('Bot服务重启失败: ' + (response.data.message || '未知错误'), false);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('重启Bot服务失败:', error);
+                            this.showToastMessage('重启Bot服务失败: ' + (error.response?.data?.message || error.message || '未知错误'), false);
                         });
                 },
                 addSinglePrefix() {

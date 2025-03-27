@@ -28,9 +28,12 @@ from flask_cors import CORS
 from channel import channel_factory
 from common import const
 from config import load_config, conf
-from plugins import instance as plugin_manager_instance
+from plugins import PluginManager, instance as plugin_instance
 from common.tmp_dir import TmpDir
 from common.log_config import admin_logger as logger
+
+# 定义全局变量，引用plugins包中的全局单例实例
+_plugin_manager = plugin_instance
 
 # 创建Flask应用
 app = Flask(__name__, 
@@ -62,9 +65,8 @@ global_update_status = {
     "group_total": 0
 }
 
-# 添加一个信号处理函数和一个重启标志
+# 标志，用于标识是否需要重启Flask服务器
 restart_flask_server = False
-original_port = 7860
 
 def handle_restart_signal(signum, frame):
     """处理重启信号，优雅退出当前进程并重启"""
@@ -95,20 +97,9 @@ def delayed_update_contacts():
         logger.info("开始延迟更新联系人列表...")
         time.sleep(60 * 5)  # 延迟5分钟
         
-        # 检查是否已有任务在进行
-        if global_update_status['friend_updating'] or global_update_status['group_updating']:
-            logger.info("已有更新任务在进行中，跳过自动更新")
-            return
-            
         # 更新联系人列表
         update_friend_list()
         time.sleep(5)  # 等待5秒
-        
-        # 再次检查，确保不会有多个任务并发
-        if global_update_status['group_updating']:
-            logger.info("已有群组更新任务在进行中，跳过自动更新")
-            return
-            
         update_group_list()
         
         logger.info("延迟更新联系人列表完成")
@@ -240,7 +231,8 @@ def start_channel(channel_name: str):
         const.DINGTALK
     ]
     if channel_name in available_channels:
-        plugin_manager_instance.load_plugins()
+        # 使用全局实例加载插件，不再创建新实例
+        _plugin_manager.load_plugins()
     channel.startup()
 
 def run_bot():
@@ -321,24 +313,33 @@ def get_plugin_list():
         logger.info("开始获取插件列表...")
         plugin_list = []
         
-        # 直接使用导入的实例
-        # 如果实例中没有插件数据，先加载
-        if not plugin_manager_instance.plugins or len(plugin_manager_instance.plugins) == 0:
-            logger.warning("PluginManager实例中无插件数据，这可能是由于未正确加载godcmd初始化的实例")
+        # 使用全局实例
+        global _plugin_manager
+        plugin_manager = _plugin_manager
+        
+        # 如果全局实例为空，使用单例（这种情况不应该发生）
+        if plugin_manager is None:
+            logger.warning("全局_plugin_manager为空，这是不应该发生的情况")
+            logger.warning("尝试使用PluginManager单例...")
+            plugin_manager = plugin_instance
+        
+        # 检查PluginManager实例中是否有插件数据
+        if not plugin_manager.plugins or len(plugin_manager.plugins) == 0:
+            logger.warning("PluginManager实例中无插件数据，这可能是由于未正确加载")
             logger.warning("尝试加载插件配置数据（但不初始化插件实例）...")
             # 尝试读取配置，但不初始化插件实例
             try:
                 # 仅加载配置和扫描插件，不激活它们
-                plugin_manager_instance.load_config()
-                plugin_manager_instance.scan_plugins()
-                logger.info(f"加载配置后，发现 {len(plugin_manager_instance.plugins)} 个插件")
+                plugin_manager.load_config()
+                plugin_manager.scan_plugins()
+                logger.info(f"加载配置后，发现 {len(plugin_manager.plugins)} 个插件")
             except Exception as e:
                 logger.error(f"尝试加载插件配置失败: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
         
         # 直接获取插件列表，与godcmd.py中的plist命令行为一致
-        plugins = plugin_manager_instance.list_plugins()
+        plugins = plugin_manager.list_plugins()
         
         logger.info(f"从PluginManager获取到 {len(plugins)} 个插件")
         
@@ -365,7 +366,7 @@ def get_plugin_list():
                     'priority': plugin_cls.priority,
                     'hidden': getattr(plugin_cls, 'hidden', False),
                     'has_config': False,
-                    'active': name in plugin_manager_instance.instances  # 添加活动状态
+                    'active': name in plugin_manager.instances  # 添加活动状态
                 }
                 
                 # 检查是否有配置文件
@@ -470,7 +471,9 @@ def update_plugin_config(plugin_name, config_data):
         
         # 尝试重载插件
         try:
-            plugin_manager_instance.reload_plugin(plugin_name.upper())
+            global _plugin_manager
+            plugin_manager = _plugin_manager or plugin_instance
+            plugin_manager.reload_plugin(plugin_name.upper())
             logger.info(f"插件 {plugin_name} 重新加载成功")
         except Exception as e:
             logger.warning(f"重新加载插件 {plugin_name} 失败: {str(e)}")
@@ -497,216 +500,188 @@ def retry_on_failure(func, max_retries=3):
 
 def update_friend_list():
     """更新好友列表"""
-    # 尝试获取锁，如果已经有更新任务在进行则直接返回
-    if not contact_update_lock.acquire(blocking=False):
-        logger.warning("已有更新联系人任务在进行中，忽略当前请求")
+    if conf().get("channel_type") != "gewechat":
+        logger.warning("当前渠道不支持此功能")
         return False
     
+    from lib.gewechat.client import GewechatClient
+    
     try:
-        if conf().get("channel_type") != "gewechat":
-            logger.warning("当前渠道不支持此功能")
+        base_url = conf().get("gewechat_base_url")
+        token = conf().get("gewechat_token", "")
+        app_id = conf().get("gewechat_app_id")
+        
+        if not all([base_url, app_id]):
+            logger.error("gewechat配置不完整")
             return False
         
-        from lib.gewechat.client import GewechatClient
+        logger.info(f"开始更新好友列表: base_url={base_url}, app_id={app_id}")
+        client = GewechatClient(base_url, token)
         
-        try:
-            # 即使获取了锁，也再次检查一下状态标记，确保状态一致性
-            if global_update_status['friend_updating']:
-                logger.warning("全局状态显示已有更新任务在进行中，忽略当前请求")
-                return False
-                
-            base_url = conf().get("gewechat_base_url")
-            token = conf().get("gewechat_token", "")
-            app_id = conf().get("gewechat_app_id")
-            
-            if not all([base_url, app_id]):
-                logger.error("gewechat配置不完整")
-                return False
-            
-            logger.info(f"开始更新好友列表: base_url={base_url}, app_id={app_id}")
-            client = GewechatClient(base_url, token)
-            
-            # 获取好友列表
-            logger.info("获取联系人列表...")
-            contacts_json = client.fetch_contacts_list(app_id)
-            if contacts_json.get("ret") != 200:
-                logger.error(f"获取联系人列表失败: {contacts_json}")
-                return False
-            
-            friends = contacts_json["data"].get("friends", [])
-            logger.info(f"找到 {len(friends)} 个好友ID")
-            
-            # 直接检查是否有好友ID
-            if not friends:
-                logger.warning("未找到好友ID，创建空列表文件")
-                # 保存空列表到文件
-                tmp_dir = TmpDir().path()
-                friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
-                with open(friend_list_file, 'w', encoding='utf-8') as f:
-                    json.dump([], f, ensure_ascii=False)
-                return True
-                
-            friend_list = []
-            
-            # 更新全局进度状态
-            global_update_status['friend_total'] = len(friends)
-            global_update_status['friend_update_progress'] = 0
-            global_update_status['friend_updating'] = True
-            
-            # 批量获取好友信息,每批20个(API限制)
-            batch_size = 20
-            for i in range(0, len(friends), batch_size):
-                batch_friends = friends[i:i + batch_size]
-                
-                def get_batch_info():
-                    return client.get_detail_info(app_id, batch_friends)
-                
-                try:
-                    info_json = retry_on_failure(get_batch_info)
-                    if info_json.get("ret") == 200:
-                        data_list = info_json.get("data", [])
-                        for friend_info in data_list:
-                            if friend_info.get("nickName"):
-                                friend_list.append(friend_info)
-                    else:
-                        logger.warning(f"获取好友信息失败: {info_json}")
-                except Exception as e:
-                    logger.error(f"处理好友批次时出错: {e}")
-                    continue
-                
-                # 更新进度
-                global_update_status['friend_update_progress'] = min(i + batch_size, len(friends))
-                logger.info(f"已处理 {global_update_status['friend_update_progress']}/{len(friends)} 个好友")
-            
-            # 保存到文件
+        # 获取好友列表
+        logger.info("获取联系人列表...")
+        contacts_json = client.fetch_contacts_list(app_id)
+        if contacts_json.get("ret") != 200:
+            logger.error(f"获取联系人列表失败: {contacts_json}")
+            return False
+        
+        friends = contacts_json["data"].get("friends", [])
+        logger.info(f"找到 {len(friends)} 个好友ID")
+        
+        # 直接检查是否有好友ID
+        if not friends:
+            logger.warning("未找到好友ID，创建空列表文件")
+            # 保存空列表到文件
             tmp_dir = TmpDir().path()
             friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
-            
             with open(friend_list_file, 'w', encoding='utf-8') as f:
-                json.dump(friend_list, f, ensure_ascii=False)
-            
-            logger.info(f"好友列表更新成功，共{len(friend_list)}个好友")
-            
-            # 更新完成，重置状态
-            global_update_status['friend_updating'] = False
-            global_update_status['friend_last_update'] = datetime.datetime.now()
+                json.dump([], f, ensure_ascii=False)
             return True
-        except Exception as e:
-            logger.error(f"更新好友列表时发生错误: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
             
-            # 出错时也需要重置状态
-            global_update_status['friend_updating'] = False
-            return False
-    finally:
-        # 确保在函数结束时释放锁
-        contact_update_lock.release()
+        friend_list = []
+        
+        # 更新全局进度状态
+        global_update_status['friend_total'] = len(friends)
+        global_update_status['friend_update_progress'] = 0
+        global_update_status['friend_updating'] = True
+        
+        # 批量获取好友信息,每批20个(API限制)
+        batch_size = 20
+        for i in range(0, len(friends), batch_size):
+            batch_friends = friends[i:i + batch_size]
+            
+            def get_batch_info():
+                return client.get_detail_info(app_id, batch_friends)
+            
+            try:
+                info_json = retry_on_failure(get_batch_info)
+                if info_json.get("ret") == 200:
+                    data_list = info_json.get("data", [])
+                    for friend_info in data_list:
+                        if friend_info.get("nickName"):
+                            friend_list.append(friend_info)
+                else:
+                    logger.warning(f"获取好友信息失败: {info_json}")
+            except Exception as e:
+                logger.error(f"处理好友批次时出错: {e}")
+                continue
+            
+            # 更新进度
+            global_update_status['friend_update_progress'] = min(i + batch_size, len(friends))
+            logger.info(f"已处理 {global_update_status['friend_update_progress']}/{len(friends)} 个好友")
+        
+        # 保存到文件
+        tmp_dir = TmpDir().path()
+        friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
+        
+        with open(friend_list_file, 'w', encoding='utf-8') as f:
+            json.dump(friend_list, f, ensure_ascii=False)
+        
+        logger.info(f"好友列表更新成功，共{len(friend_list)}个好友")
+        
+        # 更新完成，重置状态
+        global_update_status['friend_updating'] = False
+        global_update_status['friend_last_update'] = datetime.datetime.now()
+        return True
+    except Exception as e:
+        logger.error(f"更新好友列表时发生错误: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
+        # 出错时也需要重置状态
+        global_update_status['friend_updating'] = False
+        return False
 
 def update_group_list():
     """更新群组列表"""
-    # 尝试获取锁，如果已经有更新任务在进行则直接返回
-    if not contact_update_lock.acquire(blocking=False):
-        logger.warning("已有更新联系人任务在进行中，忽略当前请求")
+    if conf().get("channel_type") != "gewechat":
+        logger.warning("当前渠道不支持此功能")
         return False
     
+    from lib.gewechat.client import GewechatClient
+    
     try:
-        if conf().get("channel_type") != "gewechat":
-            logger.warning("当前渠道不支持此功能")
+        base_url = conf().get("gewechat_base_url")
+        token = conf().get("gewechat_token", "")
+        app_id = conf().get("gewechat_app_id")
+        
+        if not all([base_url, app_id]):
+            logger.error("gewechat配置不完整")
             return False
         
-        from lib.gewechat.client import GewechatClient
+        logger.info(f"开始更新群组列表: base_url={base_url}, app_id={app_id}")
+        client = GewechatClient(base_url, token)
         
-        try:
-            # 即使获取了锁，也再次检查一下状态标记，确保状态一致性
-            if global_update_status['group_updating']:
-                logger.warning("全局状态显示已有群组更新任务在进行中，忽略当前请求")
-                return False
-                
-            base_url = conf().get("gewechat_base_url")
-            token = conf().get("gewechat_token", "")
-            app_id = conf().get("gewechat_app_id")
-            
-            if not all([base_url, app_id]):
-                logger.error("gewechat配置不完整")
-                return False
-            
-            logger.info(f"开始更新群组列表: base_url={base_url}, app_id={app_id}")
-            client = GewechatClient(base_url, token)
-            
-            # 获取群聊列表
-            logger.info("获取联系人列表...")
-            contacts_json = client.fetch_contacts_list(app_id)
-            if contacts_json.get("ret") != 200:
-                logger.error(f"获取联系人列表失败: {contacts_json}")
-                return False
-            
-            chatrooms = contacts_json["data"].get("chatrooms", [])
-            logger.info(f"找到 {len(chatrooms)} 个群聊ID")
-            
-            chatroom_list = []
-            
-            # 直接检查是否有群聊ID
-            if not chatrooms:
-                logger.warning("未找到群聊ID，创建空列表文件")
-                # 保存空列表到文件
-                tmp_dir = TmpDir().path()
-                chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
-                with open(chatroom_list_file, 'w', encoding='utf-8') as f:
-                    json.dump([], f, ensure_ascii=False)
-                return True
-            
-            # 更新全局进度状态
-            global_update_status['group_total'] = len(chatrooms)
-            global_update_status['group_update_progress'] = 0
-            global_update_status['group_updating'] = True
-            
-            # 获取每个群聊的详细信息(群组API只支持单个查询)
-            for i, chatroom_id in enumerate(chatrooms):
-                def get_chatroom_info():
-                    return client.get_chatroom_info(app_id, chatroom_id)
-                
-                try:
-                    info_json = retry_on_failure(get_chatroom_info)
-                    if info_json.get("ret") == 200:
-                        room_info = info_json["data"]
-                        if room_info.get("nickName"):
-                            chatroom_list.append(room_info)
-                    else:
-                        logger.warning(f"获取群聊 {chatroom_id} 详情失败: {info_json}")
-                except Exception as e:
-                    logger.error(f"处理群聊 {chatroom_id} 时出错: {e}")
-                    continue
-                
-                # 更新进度
-                global_update_status['group_update_progress'] = i + 1
-                if (i + 1) % 10 == 0:  # 每10个群组记录一次进度
-                    logger.info(f"已处理 {i + 1}/{len(chatrooms)} 个群组")
-            
-            # 保存到文件
+        # 获取群聊列表
+        logger.info("获取联系人列表...")
+        contacts_json = client.fetch_contacts_list(app_id)
+        if contacts_json.get("ret") != 200:
+            logger.error(f"获取联系人列表失败: {contacts_json}")
+            return False
+        
+        chatrooms = contacts_json["data"].get("chatrooms", [])
+        logger.info(f"找到 {len(chatrooms)} 个群聊ID")
+        
+        chatroom_list = []
+        
+        # 直接检查是否有群聊ID
+        if not chatrooms:
+            logger.warning("未找到群聊ID，创建空列表文件")
+            # 保存空列表到文件
             tmp_dir = TmpDir().path()
             chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
-            
             with open(chatroom_list_file, 'w', encoding='utf-8') as f:
-                json.dump(chatroom_list, f, ensure_ascii=False)
-            
-            logger.info(f"群组列表更新成功，共{len(chatroom_list)}个群组")
-            
-            # 更新完成，重置状态
-            global_update_status['group_updating'] = False
-            global_update_status['group_last_update'] = datetime.datetime.now()
+                json.dump([], f, ensure_ascii=False)
             return True
-        except Exception as e:
-            logger.error(f"更新群组列表时发生错误: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
+        
+        # 更新全局进度状态
+        global_update_status['group_total'] = len(chatrooms)
+        global_update_status['group_update_progress'] = 0
+        global_update_status['group_updating'] = True
+        
+        # 获取每个群聊的详细信息(群组API只支持单个查询)
+        for i, chatroom_id in enumerate(chatrooms):
+            def get_chatroom_info():
+                return client.get_chatroom_info(app_id, chatroom_id)
             
-            # 出错时也需要重置状态
-            global_update_status['group_updating'] = False
-            return False
-    finally:
-        # 确保在函数结束时释放锁
-        contact_update_lock.release()
+            try:
+                info_json = retry_on_failure(get_chatroom_info)
+                if info_json.get("ret") == 200:
+                    room_info = info_json["data"]
+                    if room_info.get("nickName"):
+                        chatroom_list.append(room_info)
+                else:
+                    logger.warning(f"获取群聊 {chatroom_id} 详情失败: {info_json}")
+            except Exception as e:
+                logger.error(f"处理群聊 {chatroom_id} 时出错: {e}")
+                continue
+            
+            # 更新进度
+            global_update_status['group_update_progress'] = i + 1
+            if (i + 1) % 10 == 0:  # 每10个群组记录一次进度
+                logger.info(f"已处理 {i + 1}/{len(chatrooms)} 个群组")
+        
+        # 保存到文件
+        tmp_dir = TmpDir().path()
+        chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
+        
+        with open(chatroom_list_file, 'w', encoding='utf-8') as f:
+            json.dump(chatroom_list, f, ensure_ascii=False)
+        
+        logger.info(f"群组列表更新成功，共{len(chatroom_list)}个群组")
+        
+        # 更新完成，重置状态
+        global_update_status['group_updating'] = False
+        global_update_status['group_last_update'] = datetime.datetime.now()
+        return True
+    except Exception as e:
+        logger.error(f"更新群组列表时发生错误: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        
+        # 出错时也需要重置状态
+        global_update_status['group_updating'] = False
+        return False
 
 def get_contacts():
     """获取联系人和群组列表，只读取现有文件，不触发更新"""
@@ -922,17 +897,21 @@ def schedule_contact_update():
 
 # 添加第一个请求处理函数
 @app.before_request
-def before_first_request_handler():
+def before_first_request():
+    """在第一个请求前执行初始化"""
     # 检查是否已经完成初始化
     if not hasattr(app, '_initialization_done'):
         # 标记为已初始化，防止重复执行
         app._initialization_done = True
         
-        # 获取插件管理器实例
+        # 获取插件管理器实例，使用全局单例
         try:
+            global _plugin_manager
             logger.info("获取插件管理器实例...")
-            # 使用导入的全局实例，而不是创建新实例
-            logger.info(f"插件管理器状态: 已加载 {len(plugin_manager_instance.plugins)} 个插件，激活 {len(plugin_manager_instance.instances)} 个")
+            # _plugin_manager已经在开头初始化为plugin_instance，不需要再创建新实例
+            # _plugin_manager = PluginManager()
+            # 不再调用load_plugins方法，避免重复初始化
+            logger.info(f"插件管理器状态: 已加载 {len(_plugin_manager.plugins)} 个插件，激活 {len(_plugin_manager.instances)} 个")
         except Exception as e:
             logger.error(f"获取插件管理器实例失败: {str(e)}")
             import traceback
@@ -1087,9 +1066,27 @@ def get_status():
 @app.route('/api/restart', methods=['POST'])
 @login_required
 def restart_service():
-    """重启服务"""
+    """重启Bot服务"""
     success, message = start_run()
     return jsonify({"success": success, "message": message})
+
+@app.route('/api/restart_webpanel', methods=['POST'])
+@login_required
+def restart_webpanel():
+    """重启Web面板服务"""
+    try:
+        global restart_flask_server
+        
+        # 设置标志以重启Flask服务器
+        logger.info("准备重启Web面板服务...")
+        restart_flask_server = True
+        return jsonify({
+            "success": True, 
+            "message": "Web面板服务正在重启，页面将在几秒钟后刷新"
+        })
+    except Exception as e:
+        logger.error(f"重启Web面板失败: {str(e)}")
+        return jsonify({"success": False, "message": f"重启Web面板失败: {str(e)}"})
 
 @app.route('/api/logout_gewechat', methods=['POST'])
 @login_required
@@ -1124,6 +1121,16 @@ def api_update_plugin_config(plugin_name):
     """更新插件配置"""
     config_data = request.json
     success = update_plugin_config(plugin_name, config_data)
+    
+    if success:
+        # 配置更新成功后重启微信服务以应用更改
+        logger.info(f"重启微信服务以应用插件 {plugin_name} 配置更改...")
+        restart_success, restart_message = start_run()
+        if not restart_success:
+            logger.warning(f"重启微信服务失败: {restart_message}")
+            return jsonify({"success": True, "message": "配置已更新，但服务重启失败，可能需要手动重启服务"})
+        return jsonify({"success": True, "message": "配置已更新，服务已重启"})
+    
     return jsonify({"success": success})
 
 @app.route('/api/plugins/<plugin_name>/toggle', methods=['POST'])
@@ -1132,21 +1139,33 @@ def api_toggle_plugin(plugin_name):
     """启用或禁用插件"""
     enable = request.json.get('enable', False)
     
-    # 使用导入的全局实例
+    # 使用与godcmd.py中enablep和disablep命令相同的方式
+    global _plugin_manager
+    plugin_manager = _plugin_manager or plugin_instance
+    
     if enable:
         # enablep命令的实现方式
-        success, message = plugin_manager_instance.enable_plugin(plugin_name)
+        success, message = plugin_manager.enable_plugin(plugin_name)
     else:
-        # disablep命令的实现方式
+        # disablep命令的实现方式 - 与godcmd.py中完全相同
         name = plugin_name.upper()
-        if name not in plugin_manager_instance.plugins:
+        if name not in plugin_manager.plugins:
             return jsonify({"success": False, "message": "插件不存在"})
         
         # 直接调用disable_plugin方法，这会更新配置文件并从实例中移除
-        success = plugin_manager_instance.disable_plugin(name)
+        success = plugin_manager.disable_plugin(name)
         message = "插件已禁用" if success else "插件不存在"
     
     logger.info(f"插件{plugin_name}状态更新: {'启用' if enable else '禁用'}, 结果: {success}")
+    
+    if success:
+        # 操作成功后重启微信服务以应用更改
+        logger.info(f"重启微信服务以应用插件 {plugin_name} 状态更改...")
+        restart_success, restart_message = start_run()
+        if not restart_success:
+            logger.warning(f"重启微信服务失败: {restart_message}")
+            return jsonify({"success": True, "message": message + "，但服务重启失败，可能需要手动重启服务"})
+        return jsonify({"success": True, "message": message + "，服务已重启"})
     
     return jsonify({"success": success, "message": message})
 
@@ -1158,8 +1177,10 @@ def api_install_plugin():
     if not repo:
         return jsonify({"success": False, "message": "仓库地址不能为空"})
     
-    # 调用插件管理器安装插件，使用导入的全局实例
-    success, message = plugin_manager_instance.install_plugin(repo)
+    # 调用插件管理器安装插件
+    global _plugin_manager
+    plugin_manager = _plugin_manager or plugin_instance
+    success, message = plugin_manager.install_plugin(repo)
     return jsonify({"success": success, "message": message})
 
 @app.route('/api/plugins/scan', methods=['POST'])
@@ -1169,53 +1190,148 @@ def api_scan_plugins():
     try:
         logger.info("开始扫描并加载插件...")
         
-        # 使用导入的全局实例
-        new_plugins = plugin_manager_instance.scan_plugins()
-        failed_plugins = plugin_manager_instance.activate_plugins()
+        # 完全按照godcmd.py中scanp命令的逻辑
+        global _plugin_manager
+        plugin_manager = _plugin_manager or plugin_instance
+        new_plugins = plugin_manager.scan_plugins()
+        failed_plugins = plugin_manager.activate_plugins()
         
-        result = {
-            "success": True,
-            "new_plugins": len(new_plugins),
-            "failed_plugins": failed_plugins,
-            "message": f"找到 {len(new_plugins)} 个新插件, {len(failed_plugins)} 个插件激活失败"
-        }
-        return jsonify(result)
+        result_message = "插件扫描完成"
+        if len(new_plugins) > 0:
+            result_message += "\n发现新插件：\n" + "\n".join([f"{p.name}_v{p.version}" for p in new_plugins])
+        else:
+            result_message += ", 未发现新插件"
+            
+        if failed_plugins:
+            result_message += f"\n以下插件加载失败: {', '.join(failed_plugins)}"
+            
+        logger.info(result_message)
+        
+        # 扫描完成后重启微信服务以应用更改
+        logger.info("重启微信服务以应用插件扫描结果...")
+        restart_success, restart_message = start_run()
+        if not restart_success:
+            logger.warning(f"重启微信服务失败: {restart_message}")
+            return jsonify({
+                "success": True, 
+                "message": result_message + "\n\n但服务重启失败，可能需要手动重启服务"
+            })
+        
+        return jsonify({
+            "success": True, 
+            "message": result_message + "\n\n服务已重启，插件变更已生效"
+        })
     except Exception as e:
-        logger.error(f"扫描插件出错: {str(e)}")
+        logger.error(f"扫描插件失败: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        return jsonify({"success": False, "message": f"扫描插件出错: {str(e)}"})
+        return jsonify({"success": False, "message": f"扫描插件失败: {str(e)}"})
 
-@app.route('/api/plugins/<plugin_name>/enable', methods=['POST'])
+@app.route('/api/plugins/<plugin_name>/reload', methods=['POST'])
 @login_required
-def api_enable_plugin(plugin_name):
-    """启用插件"""
+def api_reload_single_plugin(plugin_name):
+    """重新加载单个插件配置"""
     try:
-        # 使用导入的全局实例
-        success, message = plugin_manager_instance.enable_plugin(plugin_name.upper())
-        return jsonify({"success": success, "message": message})
+        # 与godcmd.py中reloadp命令使用相同的方式重载插件
+        global _plugin_manager
+        plugin_manager = _plugin_manager or plugin_instance
+        name = plugin_name.upper()
+        
+        if name not in plugin_manager.plugins:
+            return jsonify({
+                'success': False,
+                'message': f'插件 {plugin_name} 不存在'
+            })
+        
+        success = plugin_manager.reload_plugin(name)
+        if not success:
+            return jsonify({
+                'success': False,
+                'message': f'插件 {plugin_name} 重载失败'
+            })
+            
+        # 重载完成后重启微信服务以应用更改
+        logger.info(f"重启微信服务以应用插件 {plugin_name} 重载结果...")
+        restart_success, restart_message = start_run()
+        if not restart_success:
+            logger.warning(f"重启微信服务失败: {restart_message}")
+            return jsonify({
+                'success': True,
+                'message': f'插件 {plugin_name} 配置已重载，但服务重启失败，可能需要手动重启服务'
+            })
+        
+        return jsonify({
+            'success': True,
+            'message': f'插件 {plugin_name} 配置已重载，服务已重启'
+        })
+            
     except Exception as e:
-        logger.error(f"启用插件 {plugin_name} 出错: {str(e)}")
-        return jsonify({"success": False, "message": f"启用插件出错: {str(e)}"})
+        logger.error(f"重载插件 {plugin_name} 失败: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'重载插件失败: {str(e)}'
+        })
 
-@app.route('/api/plugins/<plugin_name>/disable', methods=['POST'])
+@app.route('/api/plugins/reload', methods=['POST'])
 @login_required
-def api_disable_plugin(plugin_name):
-    """禁用插件"""
+def api_reload_plugins():
+    """扫描并加载插件"""
     try:
-        # 使用导入的全局实例
-        success = plugin_manager_instance.disable_plugin(plugin_name.upper())
-        return jsonify({"success": success, "message": "插件已禁用" if success else "禁用插件失败"})
+        # 完全按照godcmd.py中scanp命令的逻辑
+        global _plugin_manager
+        plugin_manager = _plugin_manager or plugin_instance
+        new_plugins = plugin_manager.scan_plugins()
+        failed_plugins = plugin_manager.activate_plugins()
+        
+        result_message = "插件扫描完成"
+        if len(new_plugins) > 0:
+            result_message += "\n发现新插件：\n" + "\n".join([f"{p.name}_v{p.version}" for p in new_plugins])
+        else:
+            result_message += ", 未发现新插件"
+            
+        if failed_plugins:
+            result_message += f"\n以下插件加载失败: {', '.join(failed_plugins)}"
+            
+        logger.info(result_message)
+        
+        # 扫描完成后重启微信服务以应用更改
+        logger.info("重启微信服务以应用插件扫描结果...")
+        restart_success, restart_message = start_run()
+        if not restart_success:
+            logger.warning(f"重启微信服务失败: {restart_message}")
+            return jsonify({
+                "success": True, 
+                "message": result_message + "\n\n但服务重启失败，可能需要手动重启服务"
+            })
+        
+        return jsonify({
+            "success": True, 
+            "message": result_message + "\n\n服务已重启，插件变更已生效"
+        })
     except Exception as e:
-        logger.error(f"禁用插件 {plugin_name} 出错: {str(e)}")
-        return jsonify({"success": False, "message": f"禁用插件出错: {str(e)}"})
+        logger.error(f"扫描插件失败: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({"success": False, "message": f"扫描插件失败: {str(e)}"})
+
+@app.route('/api/plugins/<plugin_name>/update', methods=['POST'])
+@login_required
+def api_update_plugin(plugin_name):
+    """更新插件"""
+    global _plugin_manager
+    plugin_manager = _plugin_manager or plugin_instance
+    success, message = plugin_manager.update_plugin(plugin_name)
+    return jsonify({"success": success, "message": message})
 
 @app.route('/api/plugins/<plugin_name>/uninstall', methods=['POST'])
 @login_required
 def api_uninstall_plugin(plugin_name):
     """卸载插件"""
-    # 使用导入的全局实例
-    success, message = plugin_manager_instance.uninstall_plugin(plugin_name)
+    global _plugin_manager
+    plugin_manager = _plugin_manager or plugin_instance
+    success, message = plugin_manager.uninstall_plugin(plugin_name)
     return jsonify({"success": success, "message": message})
 
 @app.route('/api/plugins/<plugin_name>/priority', methods=['POST'])
@@ -1225,8 +1341,9 @@ def api_set_plugin_priority(plugin_name):
     priority = request.json.get('priority', 0)
     try:
         priority = int(priority)
-        # 使用导入的全局实例
-        success = plugin_manager_instance.set_plugin_priority(plugin_name, priority)
+        global _plugin_manager
+        plugin_manager = _plugin_manager or plugin_instance
+        success = plugin_manager.set_plugin_priority(plugin_name, priority)
         return jsonify({"success": success, "message": "设置优先级成功" if success else "设置优先级失败"})
     except Exception as e:
         logger.error(f"设置插件优先级失败: {str(e)}")
@@ -1277,17 +1394,10 @@ def api_get_contacts():
 def api_update_friends():
     """更新通讯录"""
     try:
-        # 先检查全局状态标志，避免创建不必要的线程
+        # 如果已经在更新中，返回提示
         if global_update_status['friend_updating']:
             logger.info("通讯录更新已在进行中，忽略重复请求")
             return jsonify({"success": False, "message": "通讯录更新已在进行中"})
-        
-        # 尝试获取锁但不阻塞，如果已有锁则直接返回
-        if not contact_update_lock.acquire(blocking=False):
-            logger.info("有其他更新任务正在进行，忽略当前请求")
-            return jsonify({"success": False, "message": "有其他更新任务正在进行"})
-            
-        contact_update_lock.release()  # 立即释放锁，让实际的更新函数来获取
             
         # 在新线程中执行，避免阻塞API响应
         logger.info("手动触发通讯录更新")
@@ -1302,18 +1412,11 @@ def api_update_friends():
 def api_update_rooms():
     """更新群组详情"""
     try:
-        # 先检查全局状态标志，避免创建不必要的线程
+        # 如果已经在更新中，返回提示
         if global_update_status['group_updating']:
             logger.info("群组详情更新已在进行中，忽略重复请求")
             return jsonify({"success": False, "message": "群组详情更新已在进行中"})
-        
-        # 尝试获取锁但不阻塞，如果已有锁则直接返回
-        if not contact_update_lock.acquire(blocking=False):
-            logger.info("有其他更新任务正在进行，忽略当前请求")
-            return jsonify({"success": False, "message": "有其他更新任务正在进行"})
             
-        contact_update_lock.release()  # 立即释放锁，让实际的更新函数来获取
-        
         # 在新线程中执行，避免阻塞API响应
         logger.info("手动触发群组详情更新")
         threading.Thread(target=update_group_list, daemon=True).start()
@@ -1457,97 +1560,14 @@ def api_get_system_config():
 @login_required
 def api_update_system_config():
     """更新系统配置"""
-    config_data = request.json
-    success = update_system_config(config_data)
-    return jsonify({"success": success, "message": "配置更新成功" if success else "配置更新失败"})
-
-@app.route('/api/plugins/<plugin_name>/reload', methods=['POST'])
-@login_required
-def api_reload_single_plugin(plugin_name):
-    """重新加载单个插件配置"""
     try:
-        # 使用导入的全局实例
-        name = plugin_name.upper()
-        
-        if name not in plugin_manager_instance.plugins:
-            return jsonify({
-                'success': False,
-                'message': f'插件 {plugin_name} 不存在'
-            })
-        
-        success = plugin_manager_instance.reload_plugin(name)
-        if success:
-            return jsonify({
-                'success': True,
-                'message': f'插件 {plugin_name} 配置已重载'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': f'插件 {plugin_name} 重载失败'
-            })
-            
+        config_data = request.json
+        success = update_system_config(config_data)
+        # 前端会处理重启，这里不需要自动重启
+        return jsonify({"success": success, "message": "配置已更新"})
     except Exception as e:
-        logger.error(f"重载插件 {plugin_name} 失败: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return jsonify({
-            'success': False,
-            'message': f'重载插件失败: {str(e)}'
-        })
-
-@app.route('/api/plugins/reload', methods=['POST'])
-@login_required
-def api_reload_plugins():
-    """重新加载所有插件"""
-    try:
-        # 使用导入的全局实例
-        # 先加载配置
-        plugin_manager_instance.load_config()
-        # 扫描和激活插件
-        plugin_manager_instance.scan_plugins()
-        failed_plugins = plugin_manager_instance.activate_plugins()
-        
-        if failed_plugins:
-            logger.warning(f"以下插件加载失败: {', '.join(failed_plugins)}")
-            return jsonify({
-                'success': True,
-                'partial': True,
-                'message': f'插件重载完成，但部分插件加载失败: {", ".join(failed_plugins)}'
-            })
-        
-        logger.info("所有插件已重新加载")
-        return jsonify({
-            'success': True,
-            'message': '所有插件已重新加载'
-        })
-    except Exception as e:
-        logger.error(f"重新加载插件失败: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return jsonify({
-            'success': False,
-            'message': f'重新加载插件失败: {str(e)}'
-        })
-
-@app.route('/api/plugins/restart', methods=['POST'])
-@login_required
-def api_restart_plugins():
-    """重启应用以刷新插件状态"""
-    try:
-        # 获取重启服务的结果
-        success, message = start_run()
-        return jsonify({"success": success, "message": message})
-    except Exception as e:
-        logger.error(f"重启应用失败: {str(e)}")
-        return jsonify({"success": False, "message": f"重启应用失败: {str(e)}"})
-
-@app.route('/api/plugins/<plugin_name>/update', methods=['POST'])
-@login_required
-def api_update_plugin(plugin_name):
-    """更新插件"""
-    success, message = plugin_manager_instance.update_plugin(plugin_name)
-    return jsonify({"success": success, "message": message})
+        logger.error(f"更新系统配置失败: {str(e)}")
+        return jsonify({"success": False, "message": f"更新失败: {str(e)}"})
 
 # ============== Socket.IO 事件 ==============
 @socketio.on('connect')
@@ -1663,17 +1683,31 @@ if __name__ == "__main__":
     # 启动微信服务
     start_run()
     
-    # 设置固定端口，不再从配置中读取
-    original_port = 7860
-    # 将端口保存到应用配置中，供重启时使用
-    app.config['PORT'] = original_port
-    logger.info(f"正在启动Web界面，端口 {original_port}...")
-    print(f"正在启动Web界面，访问地址: http://localhost:{original_port}")
+    # 获取端口配置，按照优先级：
+    # 1. 从config.json配置读取web_ui_port
+    # 2. 从环境变量WEB_PORT获取
+    # 3. 使用默认值7860
+    app_port = conf().get("web_ui_port")
+    if not app_port:
+        app_port = os.environ.get("WEB_PORT")
+    if not app_port:
+        app_port = 7860
+    else:
+        try:
+            app_port = int(app_port)
+        except (ValueError, TypeError):
+            logger.warning(f"无效的端口配置: {app_port}，使用默认端口7860")
+            app_port = 7860
+    
+    # 将端口保存到应用配置中
+    app.config['PORT'] = app_port
+    logger.info(f"正在启动Web界面，端口 {app_port}...")
+    print(f"正在启动Web界面，访问地址: http://localhost:{app_port}")
     
     # 添加重启监测循环
     while True:
         # 启动Flask应用
-        socketio.run(app, host="0.0.0.0", port=original_port, debug=False, allow_unsafe_werkzeug=True)
+        socketio.run(app, host="0.0.0.0", port=app_port, debug=False, allow_unsafe_werkzeug=True)
         
         # 检查是否需要重启
         if restart_flask_server:
