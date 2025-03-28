@@ -181,25 +181,32 @@
                         </button>
                         <h1 class="text-xl font-semibold text-gray-800">{% block page_title %}首页{% endblock %}</h1>
                     </div>
-                    <div class="flex items-center space-x-3">
-                        <div id="statusInfo" class="mr-2 hidden sm:block">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium" 
-                                  v-bind:class="{'bg-green-100 text-green-700': isOnline, 'bg-red-100 text-red-700': !isOnline}">
-                                <i class="fa-solid" v-bind:class="{'fa-check-circle': isOnline, 'fa-times-circle': !isOnline}"></i>
-                                <span class="ml-1">[[ statusText ]]</span>
+                    <div class="flex items-center space-x-2">
+                        <div id="statusInfo" class="flex space-x-2 items-center">
+                            <!-- 微信状态 -->
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" 
+                                  v-bind:class="{'bg-green-100 text-green-700': isWechatOnline, 'bg-red-100 text-red-700': !isWechatOnline}">
+                                <i class="fa-brands fa-weixin mr-1"></i>
+                                <span class="hidden sm:inline">微信</span>
+                            </span>
+                            
+                            <!-- Bot状态 -->
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" 
+                                  v-bind:class="{'bg-green-100 text-green-700': isBotRunning, 'bg-red-100 text-red-700': !isBotRunning}">
+                                <i class="fa-solid fa-robot mr-1"></i>
+                                <span class="hidden sm:inline">Bot</span>
+                            </span>
+                            
+                            <!-- AI状态 -->
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" 
+                                  v-bind:class="{'bg-green-100 text-green-700': isAiOk, 'bg-red-100 text-red-700': !isAiOk, 'bg-yellow-100 text-yellow-700': isAiUnknown}">
+                                <i class="fa-solid fa-brain mr-1"></i>
+                                <span class="hidden sm:inline">AI</span>
                             </span>
                         </div>
-                        <div class="flex items-center">
-                            <div class="flex items-center px-3 py-1.5 bg-gray-100 rounded-lg">
-                                <div class="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 mr-2">
-                                    <i class="fa-solid fa-user text-sm"></i>
-                                </div>
-                                <span class="text-sm text-gray-700 hidden sm:inline">{{ session.username }}</span>
-                            </div>
-                            <a href="{{ url_for('logout') }}" class="ml-2 p-2 text-gray-600 hover:text-danger-600 hover:bg-danger-50 rounded-full transition-colors" title="退出登录">
-                                <i class="fa-solid fa-power-off"></i>
-                            </a>
-                        </div>
+                        <a href="{{ url_for('logout') }}" class="p-2 text-gray-600 hover:text-danger-600 hover:bg-danger-50 rounded-full transition-colors" title="退出登录">
+                            <i class="fa-solid fa-power-off"></i>
+                        </a>
                     </div>
                 </div>
             </header>
@@ -220,8 +227,10 @@
                 delimiters: ['[[', ']]'],
                 data() {
                     return {
-                        isOnline: false,
-                        statusText: '获取状态中...',
+                        isWechatOnline: false,
+                        isBotRunning: false,
+                        isAiOk: false,
+                        isAiUnknown: true,
                         timer: null
                     }
                 },
@@ -234,25 +243,29 @@
                 },
                 methods: {
                     checkStatus() {
+                        // 获取微信和Bot状态
                         axios.get('/api/status')
                             .then(response => {
                                 const data = response.data;
-                                this.isOnline = data.is_online;
-                                
-                                if (data.is_running) {
-                                    if (data.is_online) {
-                                        this.statusText = `${data.nickname || '用户'} 在线`;
-                                    } else {
-                                        this.statusText = '服务运行中 - 未登录';
-                                    }
-                                } else {
-                                    this.statusText = '服务未运行';
-                                }
+                                this.isWechatOnline = data.is_online;
+                                this.isBotRunning = data.is_running;
                             })
                             .catch(error => {
                                 console.error('获取状态失败:', error);
-                                this.statusText = '获取状态失败';
-                                this.isOnline = false;
+                                this.isWechatOnline = false;
+                                this.isBotRunning = false;
+                            });
+                        
+                        // 获取AI状态
+                        axios.get('/api/check_dify')
+                            .then(response => {
+                                this.isAiOk = response.data.success;
+                                this.isAiUnknown = false;
+                            })
+                            .catch(error => {
+                                console.error('检查AI状态失败:', error);
+                                this.isAiOk = false;
+                                this.isAiUnknown = false;
                             });
                     }
                 }

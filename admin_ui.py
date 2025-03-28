@@ -20,6 +20,7 @@ import secrets
 import shutil
 import importlib
 import traceback
+from datetime import timedelta
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, abort, flash
 from flask_socketio import SocketIO, emit
@@ -123,6 +124,87 @@ def verify_login(username, password):
     correct_password = conf().get("web_ui_password", "dify-on-wechat")
     
     return username == correct_username and password == correct_password
+
+# ================ 系统状态相关 ================
+def get_system_stats():
+    """获取系统状态统计信息"""
+    try:
+        # 获取CPU使用率
+        cpu_percent = psutil.cpu_percent()
+        cpu_usage = f"{cpu_percent}%"
+        
+        # 获取内存使用率
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+        memory_usage = f"{memory_percent}%"
+        
+        # 获取面板运行时长
+        process = psutil.Process(os.getpid())
+        start_time = datetime.datetime.fromtimestamp(process.create_time())
+        now = datetime.datetime.now()
+        uptime = now - start_time
+        
+        # 格式化运行时长
+        days = uptime.days
+        hours, remainder = divmod(uptime.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        
+        if days > 0:
+            panel_uptime = f"{days}天 {hours}小时 {minutes}分钟"
+        elif hours > 0:
+            panel_uptime = f"{hours}小时 {minutes}分钟"
+        else:
+            panel_uptime = f"{minutes}分钟"
+            
+        return {
+            "success": True,
+            "cpu_usage": cpu_usage,
+            "cpu_percent": cpu_percent,  # 纯数字格式，用于进度条
+            "memory_usage": memory_usage,
+            "memory_percent": memory_percent,  # 纯数字格式，用于进度条
+            "panel_uptime": panel_uptime,
+        }
+    except Exception as e:
+        logger.error(f"获取系统统计信息失败: {str(e)}")
+        return {
+            "success": False,
+            "message": f"获取系统统计信息失败: {str(e)}",
+            "cpu_usage": "0%",
+            "cpu_percent": 0,
+            "memory_usage": "0%",
+            "memory_percent": 0,
+            "panel_uptime": "未知",
+        }
+
+def check_dify_api_status():
+    """检查Dify API连接状态"""
+    try:
+        # 获取Dify API配置
+        api_base = conf().get("dify_api_base")
+        api_key = conf().get("dify_api_key")
+        
+        if not api_base or not api_key:
+            return {"success": False, "message": "Dify API配置不完整"}
+        
+        # 直接使用api_base URL
+        try:
+            response = requests.get(
+                api_base,
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=5
+            )
+            
+            if response.status_code < 400:  # 2xx或3xx状态码都视为成功
+                return {"success": True, "message": "API连接正常"}
+            else:
+                return {"success": False, "message": f"API连接异常，状态码: {response.status_code}"}
+                
+        except requests.exceptions.RequestException as e:
+            return {"success": False, "message": f"API请求失败: {str(e)}"}
+    
+    except Exception as e:
+        logger.error(f"检查Dify API状态失败: {str(e)}")
+        return {"success": False, "message": f"检查失败: {str(e)}"}
 
 # ================ 微信服务管理相关 ================
 def check_gewechat_online():
@@ -942,6 +1024,16 @@ def index():
     plugin_count = len(get_plugin_list())
     logger.info(f"主页展示: 检测到 {plugin_count} 个插件")
     
+    # 获取系统统计信息
+    system_stats = get_system_stats()
+    cpu_usage = system_stats.get("cpu_usage", "0%")
+    memory_usage = system_stats.get("memory_usage", "0%")
+    panel_uptime = system_stats.get("panel_uptime", "未知")
+    
+    # 检查Dify API状态
+    dify_api_status = check_dify_api_status()
+    dify_status = "正常" if dify_api_status.get("success", False) else "异常"
+    
     # 计算登录时长
     login_duration = "未知"
     try:
@@ -980,7 +1072,27 @@ def index():
         logger.error(f"计算登录时长失败: {str(e)}")
         login_duration = "未知"
     
-    return render_template('index.html', plugin_count=plugin_count, login_duration=login_duration)
+    # 获取配置信息
+    config_data = {
+        "gewechat_app_id": conf().get("gewechat_app_id", ""),
+        "gewechat_base_url": conf().get("gewechat_base_url", ""),
+        "gewechat_callback_url": conf().get("gewechat_callback_url", ""),
+        "gewechat_token": conf().get("gewechat_token", ""),
+        "dify_api_base": conf().get("dify_api_base", ""),
+        "dify_api_key": conf().get("dify_api_key", ""),
+        "dify_app_type": conf().get("dify_app_type", ""),
+    }
+    
+    return render_template(
+        'index.html', 
+        plugin_count=plugin_count, 
+        login_duration=login_duration,
+        cpu_usage=cpu_usage,
+        memory_usage=memory_usage,
+        panel_uptime=panel_uptime,
+        dify_api_status=dify_status,
+        config=config_data
+    )
 
 @app.route('/chat')
 @login_required
@@ -1569,15 +1681,64 @@ def api_update_system_config():
         logger.error(f"更新系统配置失败: {str(e)}")
         return jsonify({"success": False, "message": f"更新失败: {str(e)}"})
 
-# ============== Socket.IO 事件 ==============
-@socketio.on('connect')
-def socket_connect():
-    """Socket.IO连接事件"""
-    if not session.get('logged_in'):
-        return False
-    emit('response', {'data': '已连接到实时聊天服务'})
+@app.route('/api/system_stats')
+@login_required
+def api_get_system_stats():
+    """获取系统状态统计信息"""
+    try:
+        # 获取CPU使用率
+        cpu_percent = psutil.cpu_percent()
+        cpu_usage = f"{cpu_percent}%"
+        
+        # 获取内存使用率
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+        memory_usage = f"{memory_percent}%"
+        
+        # 获取面板运行时长
+        process = psutil.Process(os.getpid())
+        start_time = datetime.datetime.fromtimestamp(process.create_time())
+        now = datetime.datetime.now()
+        uptime = now - start_time
+        
+        # 格式化运行时长
+        days = uptime.days
+        hours, remainder = divmod(uptime.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        
+        if days > 0:
+            panel_uptime = f"{days}天 {hours}小时 {minutes}分钟"
+        elif hours > 0:
+            panel_uptime = f"{hours}小时 {minutes}分钟"
+        else:
+            panel_uptime = f"{minutes}分钟"
+            
+        # 检查Dify API状态
+        dify_status = check_dify_api_status()
+        dify_api_status = "正常" if dify_status.get("success", False) else "异常"
+        
+        return jsonify({
+            "success": True,
+            "cpu_usage": cpu_usage,
+            "cpu_percent": cpu_percent,  # 纯数字格式，用于进度条
+            "memory_usage": memory_usage,
+            "memory_percent": memory_percent,  # 纯数字格式，用于进度条
+            "panel_uptime": panel_uptime,
+            "dify_api_status": dify_api_status
+        })
+    except Exception as e:
+        logger.error(f"获取系统统计信息失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"获取系统统计信息失败: {str(e)}",
+            "cpu_usage": "0%",
+            "cpu_percent": 0,
+            "memory_usage": "0%",
+            "memory_percent": 0,
+            "panel_uptime": "未知",
+            "dify_api_status": "未知"
+        })
 
-@socketio.on('chat_message')
 def handle_chat_message(data):
     """处理聊天消息"""
     if not session.get('logged_in'):
@@ -1678,6 +1839,12 @@ def api_get_contact_info():
         logger.error(f"获取联系人信息出错: {e}")
         return jsonify({"success": False, "message": f"获取联系人信息失败: {str(e)}"})
 
+@app.route('/api/check_dify')
+@login_required
+def api_check_dify():
+    """检查Dify API状态的API接口"""
+    return jsonify(check_dify_api_status())
+
 # ================ 启动应用 ================
 if __name__ == "__main__":
     # 启动微信服务
@@ -1717,3 +1884,74 @@ if __name__ == "__main__":
             continue
         else:
             break  # 如果不是由重启标志触发的退出，则退出循环 
+
+# ================ Bot服务控制相关 ================
+def stop_bot_service():
+    """停止Bot服务"""
+    global current_process_instance
+    
+    try:
+        if current_process_instance is None or not current_process_instance.is_alive():
+            logger.info("[Admin] Bot服务已经停止")
+            return True, "Bot服务已经停止"
+        
+        logger.info("[Admin] 正在停止Bot服务...")
+        
+        # 尝试优雅终止进程
+        current_process_instance.terminate()
+        current_process_instance.join(5)  # 等待最多5秒
+        
+        # 检查进程是否还在运行
+        if current_process_instance.is_alive():
+            logger.warning("[Admin] Bot进程未能在5秒内终止，强制杀死...")
+            current_process_instance.kill()
+            current_process_instance.join(2)
+        
+        # 确认进程已停止
+        if not current_process_instance.is_alive():
+            logger.info("[Admin] Bot服务已成功停止")
+            return True, "Bot服务已成功停止"
+        else:
+            logger.error("[Admin] 无法停止Bot服务")
+            return False, "无法停止Bot服务"
+    
+    except Exception as e:
+        logger.error(f"[Admin] 停止Bot服务时发生错误: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False, f"停止Bot服务失败: {str(e)}"
+
+def start_bot_service():
+    """启动Bot服务"""
+    global current_process_instance
+    
+    try:
+        # 检查服务是否已经在运行
+        if current_process_instance is not None and current_process_instance.is_alive():
+            logger.info("[Admin] Bot服务已经在运行")
+            return True, "Bot服务已经在运行"
+        
+        logger.info("[Admin] 正在启动Bot服务...")
+        
+        # 使用与run_bot函数相同的逻辑
+        return run_bot()
+    
+    except Exception as e:
+        logger.error(f"[Admin] 启动Bot服务时发生错误: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False, f"启动Bot服务失败: {str(e)}"
+
+@app.route('/api/stop', methods=['POST'])
+@login_required
+def api_stop_service():
+    """停止Bot服务的API端点"""
+    success, message = stop_bot_service()
+    return jsonify({"success": success, "message": message})
+
+@app.route('/api/start', methods=['POST'])
+@login_required
+def api_start_service():
+    """启动Bot服务的API端点"""
+    success, message = start_bot_service()
+    return jsonify({"success": success, "message": message})

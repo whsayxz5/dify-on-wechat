@@ -17,7 +17,7 @@
             "priority": 669
         },
         "Banwords": {
-            "enabled": true,
+            "enabled": false,
             "priority": 100
         },
         "linkai": {
