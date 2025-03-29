@@ -673,7 +673,8 @@
                         group_update_progress: 0
                     },
                     statusTimer: null,
-                    autoRefreshTimer: null
+                    autoRefreshTimer: null,
+                    isUpdatingContacts: false // 添加本地防抖标志
                 }
             },
             computed: {
@@ -763,6 +764,12 @@
                 // 手动触发更新联系人列表
                 async updateContactsList(type) {
                     try {
+                        // 防止重复点击
+                        if (this.isUpdatingContacts) {
+                            this.showToastMessage('更新操作正在处理中，请稍候', false);
+                            return;
+                        }
+                        
                         if (type === 'friends' && this.updateStatus.friend_updating) {
                             this.showToastMessage('通讯录更新已在进行中', false);
                             return;
@@ -772,6 +779,12 @@
                             this.showToastMessage('群组详情更新已在进行中', false);
                             return;
                         }
+                        
+                        // 设置本地防抖标志
+                        this.isUpdatingContacts = true;
+                        setTimeout(() => {
+                            this.isUpdatingContacts = false;
+                        }, 5000); // 5秒内不允许再次触发
                         
                         const endpoint = type === 'friends' ? '/api/update_friends' : '/api/update_rooms';
                         const response = await axios.post(endpoint);
@@ -786,6 +799,11 @@
                     } catch (error) {
                         console.error('触发更新失败:', error);
                         this.showToastMessage('触发更新失败', false);
+                    } finally {
+                        // 确保3秒后释放本地防抖标志
+                        setTimeout(() => {
+                            this.isUpdatingContacts = false;
+                        }, 3000);
                     }
                 },
                 

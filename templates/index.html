@@ -83,49 +83,55 @@
             <div class="p-5">
                 <div class="grid grid-cols-1 gap-4">
                     <!-- 系统状态指标(横向排列) -->
-                    <div class="grid grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <!-- 运行时长 -->
-                        <div class="bg-gray-50 rounded-lg p-3">
-                            <div class="flex items-center mb-1">
-                                <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mr-2">
+                        <div class="bg-gray-50 rounded-lg p-2">
+                            <div class="flex items-center">
+                                <div class="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mr-2">
                                     <i class="fa-solid fa-clock"></i>
                                 </div>
-                                <span class="text-sm font-medium text-gray-600 hidden sm:inline">运行时长</span>
-                            </div>
-                            <div class="flex justify-between items-center mt-1">
-                                <p class="text-base font-semibold text-gray-800">[[ systemStats.panel_uptime ]]</p>
-                                <span class="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">面板</span>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-500">运行时长</span>
+                                        <span class="text-xs font-medium text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">面板</span>
+                                    </div>
+                                    <p class="text-sm font-semibold text-gray-800 truncate mt-0.5">[[ systemStats.panel_uptime ]]</p>
+                                </div>
                             </div>
                         </div>
                         
                         <!-- CPU使用率 -->
-                        <div class="bg-gray-50 rounded-lg p-3">
-                            <div class="flex items-center mb-1">
-                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-2">
+                        <div class="bg-gray-50 rounded-lg p-2">
+                            <div class="flex items-center">
+                                <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-2">
                                     <i class="fa-solid fa-microchip"></i>
                                 </div>
-                                <span class="text-sm font-medium text-gray-600 hidden sm:inline">CPU使用率</span>
-                            </div>
-                            <div class="flex justify-between items-center mt-1">
-                                <p class="text-base font-semibold text-gray-800">[[ systemStats.cpu_usage ]]</p>
-                                <div class="w-16 bg-gray-200 rounded-full h-1.5">
-                                    <div class="bg-blue-600 h-1.5 rounded-full" :style="{width: systemStats.cpu_percent + '%'}"></div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-500">CPU</span>
+                                        <div class="w-16 bg-gray-200 rounded-full h-1.5">
+                                            <div class="bg-blue-600 h-1.5 rounded-full" :style="{width: systemStats.cpu_percent + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm font-semibold text-gray-800 mt-0.5">[[ systemStats.cpu_usage ]]</p>
                                 </div>
                             </div>
                         </div>
                         
                         <!-- 内存使用率 -->
-                        <div class="bg-gray-50 rounded-lg p-3">
-                            <div class="flex items-center mb-1">
-                                <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-2">
+                        <div class="bg-gray-50 rounded-lg p-2">
+                            <div class="flex items-center">
+                                <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-2">
                                     <i class="fa-solid fa-memory"></i>
                                 </div>
-                                <span class="text-sm font-medium text-gray-600 hidden sm:inline">内存使用率</span>
-                            </div>
-                            <div class="flex justify-between items-center mt-1">
-                                <p class="text-base font-semibold text-gray-800">[[ systemStats.memory_usage ]]</p>
-                                <div class="w-16 bg-gray-200 rounded-full h-1.5">
-                                    <div class="bg-green-600 h-1.5 rounded-full" :style="{width: systemStats.memory_percent + '%'}"></div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-500">内存</span>
+                                        <div class="w-16 bg-gray-200 rounded-full h-1.5">
+                                            <div class="bg-green-600 h-1.5 rounded-full" :style="{width: systemStats.memory_percent + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <p class="text-sm font-semibold text-gray-800 mt-0.5">[[ systemStats.memory_usage ]]</p>
                                 </div>
                             </div>
                         </div>
@@ -277,21 +283,20 @@
             <div class="p-5">
                 <div class="grid grid-cols-1 gap-4">
                     <!-- 运行状态指标 -->
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <div class="flex items-center">
-                            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
-                                <i class="fa-solid fa-server"></i>
-                            </div>
-                            <div>
+                    <div class="flex items-center p-3 bg-gray-50 rounded-lg">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
+                            <i class="fa-solid fa-server"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
                                 <h3 class="text-sm font-medium text-gray-600">运行状态</h3>
-                                <p class="text-base font-semibold text-gray-800">[[ status.is_running ? '运行中' : '已停止' ]]</p>
+                                <span class="status-badge" 
+                                      :class="{'bg-green-100 text-green-800': status.is_running, 'bg-red-100 text-red-800': !status.is_running}">
+                                    <span class="status-badge-dot" :class="{'bg-green-500': status.is_running, 'bg-red-500': !status.is_running}"></span>
+                                    [[ status.is_running ? '运行中' : '已停止' ]]
+                                </span>
                             </div>
                         </div>
-                        <span class="status-badge" 
-                              :class="{'bg-green-100 text-green-800': status.is_running, 'bg-red-100 text-red-800': !status.is_running}">
-                            <span class="status-badge-dot" :class="{'bg-green-500': status.is_running, 'bg-red-500': !status.is_running}"></span>
-                            [[ status.is_running ? '运行中' : '已停止' ]]
-                        </span>
                     </div>
                     
                     <!-- Bot配置信息 -->
@@ -300,20 +305,20 @@
                             <i class="fa-solid fa-gear text-blue-500 mr-2"></i>
                             <span class="text-sm font-medium text-gray-500">Bot配置信息</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-600 font-medium">AppID:</span>
-                                <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs">{{ config.gewechat_app_id }}</span>
+                                <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs overflow-hidden text-ellipsis">{{ config.gewechat_app_id }}</span>
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-600 font-medium">Token:</span>
-                                <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs">{{ config.gewechat_token }}</span>
+                                <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs overflow-hidden text-ellipsis">{{ config.gewechat_token }}</span>
                             </div>
-                            <div class="flex flex-col col-span-2">
+                            <div class="flex flex-col col-span-1 sm:col-span-2">
                                 <span class="text-xs text-gray-600 font-medium">Base URL:</span>
                                 <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs break-all">{{ config.gewechat_base_url }}</span>
                             </div>
-                            <div class="flex flex-col col-span-2">
+                            <div class="flex flex-col col-span-1 sm:col-span-2">
                                 <span class="text-xs text-gray-600 font-medium">Callback URL:</span>
                                 <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs break-all">{{ config.gewechat_callback_url }}</span>
                             </div>
@@ -336,22 +341,21 @@
             <div class="p-5">
                 <div class="grid grid-cols-1 gap-4">
                     <!-- 接口状态 -->
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <div class="flex items-center">
-                            <div class="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 mr-3">
-                                <i class="fa-solid fa-plug"></i>
-                            </div>
-                            <div>
+                    <div class="flex items-center p-3 bg-gray-50 rounded-lg">
+                        <div class="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 mr-3">
+                            <i class="fa-solid fa-plug"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
                                 <h3 class="text-sm font-medium text-gray-600">接口状态</h3>
-                                <p class="text-base font-semibold text-gray-800">[[ systemStats.dify_api_status === '正常' ? '连接正常' : systemStats.dify_api_status === '异常' ? '连接异常' : systemStats.dify_api_status ]]</p>
+                                <span class="status-badge" 
+                                      :class="{'bg-green-100 text-green-800': systemStats.dify_api_status === '正常', 'bg-red-100 text-red-800': systemStats.dify_api_status === '异常', 'bg-yellow-100 text-yellow-800': systemStats.dify_api_status !== '正常' && systemStats.dify_api_status !== '异常'}">
+                                    <span class="status-badge-dot" 
+                                          :class="{'bg-green-500': systemStats.dify_api_status === '正常', 'bg-red-500': systemStats.dify_api_status === '异常', 'bg-yellow-500': systemStats.dify_api_status !== '正常' && systemStats.dify_api_status !== '异常'}"></span>
+                                    [[ systemStats.dify_api_status ]]
+                                </span>
                             </div>
                         </div>
-                        <span class="status-badge" 
-                              :class="{'bg-green-100 text-green-800': systemStats.dify_api_status === '正常', 'bg-red-100 text-red-800': systemStats.dify_api_status === '异常', 'bg-yellow-100 text-yellow-800': systemStats.dify_api_status !== '正常' && systemStats.dify_api_status !== '异常'}">
-                            <span class="status-badge-dot" 
-                                  :class="{'bg-green-500': systemStats.dify_api_status === '正常', 'bg-red-500': systemStats.dify_api_status === '异常', 'bg-yellow-500': systemStats.dify_api_status !== '正常' && systemStats.dify_api_status !== '异常'}"></span>
-                            [[ systemStats.dify_api_status === '正常' ? '已连接' : systemStats.dify_api_status === '异常' ? '未连接' : '检测中' ]]
-                        </span>
                     </div>
                     
                     <!-- AI配置信息 -->
@@ -360,16 +364,16 @@
                             <i class="fa-solid fa-gear text-pink-500 mr-2"></i>
                             <span class="text-sm font-medium text-gray-500">AI配置信息</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-600 font-medium">API Key:</span>
-                                <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs">{{ config.dify_api_key }}</span>
+                                <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs overflow-hidden text-ellipsis">{{ config.dify_api_key }}</span>
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-xs text-gray-600 font-medium">App Type:</span>
-                                <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs">{{ config.dify_app_type }}</span>
+                                <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs overflow-hidden text-ellipsis">{{ config.dify_app_type }}</span>
                             </div>
-                            <div class="flex flex-col col-span-2">
+                            <div class="flex flex-col col-span-1 sm:col-span-2">
                                 <span class="text-xs text-gray-600 font-medium">API Base:</span>
                                 <span class="text-gray-800 font-mono bg-gray-100 rounded px-2 py-1 mt-1 text-xs break-all">{{ config.dify_api_base }}</span>
                             </div>

@@ -21,6 +21,7 @@ import shutil
 import importlib
 import traceback
 from datetime import timedelta
+import subprocess
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, abort, flash
 from flask_socketio import SocketIO, emit
@@ -53,6 +54,7 @@ current_process_instance = None
 
 # 创建一个线程锁，用于在更新联系人时防止重复操作
 contact_update_lock = threading.Lock()
+group_update_lock = threading.Lock()
 
 # 存储更新状态
 global_update_status = {
@@ -181,27 +183,28 @@ def check_dify_api_status():
     try:
         # 获取Dify API配置
         api_base = conf().get("dify_api_base")
-        api_key = conf().get("dify_api_key")
         
-        if not api_base or not api_key:
+        if not api_base:
             return {"success": False, "message": "Dify API配置不完整"}
         
-        # 直接使用api_base URL
-        try:
-            response = requests.get(
-                api_base,
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=5
-            )
+        # 使用subprocess调用curl检查API状态
+        import subprocess
+        
+        # 确保URL末尾有斜杠
+        if not api_base.endswith('/'):
+            api_base += '/'
             
-            if response.status_code < 400:  # 2xx或3xx状态码都视为成功
-                return {"success": True, "message": "API连接正常"}
-            else:
-                return {"success": False, "message": f"API连接异常，状态码: {response.status_code}"}
+        # 使用curl -s检查状态码
+        cmd = ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', api_base]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        status_code = result.stdout.strip()
+        
+        # 如果状态码是200系列，则认为API正常
+        if status_code.startswith('2'):
+            return {"success": True, "message": "API连接正常"}
+        else:
+            return {"success": False, "message": f"API连接异常，状态码: {status_code}"}
                 
-        except requests.exceptions.RequestException as e:
-            return {"success": False, "message": f"API请求失败: {str(e)}"}
-    
     except Exception as e:
         logger.error(f"检查Dify API状态失败: {str(e)}")
         return {"success": False, "message": f"检查失败: {str(e)}"}
@@ -359,6 +362,80 @@ def start_run():
         return False, "启动失败"
     
     return True, "启动成功"
+
+def stop_bot_service():
+    """停止Bot服务"""
+    global current_process_instance
+    
+    try:
+        if current_process_instance is None or not current_process_instance.is_alive():
+            logger.info("[Admin] Bot服务已经停止")
+            return True, "Bot服务已经停止"
+        
+        logger.info("[Admin] 正在停止Bot服务...")
+        
+        # 使用与start_run相同的逻辑停止进程
+        try:
+            os.kill(current_process_instance.pid, signal.SIGTERM)
+            current_process_instance.join(5)  # 等待最多5秒
+            
+            # 如果进程还存活，强制终止
+            if current_process_instance.is_alive():
+                logger.warning("[Admin] Bot进程未能在5秒内终止，强制杀死...")
+                current_process_instance.kill()
+                current_process_instance.join(2)
+        except Exception as e:
+            logger.error(f"[Admin] 停止当前进程时发生错误: {str(e)}")
+            return False, f"停止进程失败: {str(e)}"
+        
+        # 确认进程已停止
+        if not current_process_instance.is_alive():
+            logger.info("[Admin] Bot服务已成功停止")
+            return True, "Bot服务已成功停止"
+        else:
+            logger.error("[Admin] 无法停止Bot服务")
+            return False, "无法停止Bot服务"
+    
+    except Exception as e:
+        logger.error(f"[Admin] 停止Bot服务时发生错误: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False, f"停止Bot服务失败: {str(e)}"
+
+def start_bot_service():
+    """启动Bot服务"""
+    global current_process_instance
+    
+    try:
+        # 检查服务是否已经在运行
+        if current_process_instance is not None and current_process_instance.is_alive():
+            logger.info("[Admin] Bot服务已经在运行")
+            return True, "Bot服务已经在运行"
+        
+        logger.info("[Admin] 正在启动Bot服务...")
+        
+        # 使用与start_run完全相同的逻辑启动服务
+        current_process_instance = Process(target=run_bot)
+        current_process_instance.start()
+        # 等待进程启动
+        time.sleep(5)
+        
+        # 重新加载配置
+        load_config()
+        
+        # 返回进程状态
+        if not current_process_instance.is_alive():
+            logger.error("[Admin] Bot服务启动失败")
+            return False, "启动失败"
+        
+        logger.info("[Admin] Bot服务已成功启动")
+        return True, "启动成功"
+    
+    except Exception as e:
+        logger.error(f"[Admin] 启动Bot服务时发生错误: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False, f"启动Bot服务失败: {str(e)}"
 
 def logout_gewechat():
     """退出gewechat登录"""
@@ -582,188 +659,212 @@ def retry_on_failure(func, max_retries=3):
 
 def update_friend_list():
     """更新好友列表"""
-    if conf().get("channel_type") != "gewechat":
-        logger.warning("当前渠道不支持此功能")
+    # 使用线程锁确保同一时间只有一个更新操作
+    if not contact_update_lock.acquire(blocking=False):
+        logger.warning("另一个通讯录更新操作正在进行中，忽略此次请求")
         return False
-    
-    from lib.gewechat.client import GewechatClient
     
     try:
-        base_url = conf().get("gewechat_base_url")
-        token = conf().get("gewechat_token", "")
-        app_id = conf().get("gewechat_app_id")
-        
-        if not all([base_url, app_id]):
-            logger.error("gewechat配置不完整")
-            return False
-        
-        logger.info(f"开始更新好友列表: base_url={base_url}, app_id={app_id}")
-        client = GewechatClient(base_url, token)
-        
-        # 获取好友列表
-        logger.info("获取联系人列表...")
-        contacts_json = client.fetch_contacts_list(app_id)
-        if contacts_json.get("ret") != 200:
-            logger.error(f"获取联系人列表失败: {contacts_json}")
-            return False
-        
-        friends = contacts_json["data"].get("friends", [])
-        logger.info(f"找到 {len(friends)} 个好友ID")
-        
-        # 直接检查是否有好友ID
-        if not friends:
-            logger.warning("未找到好友ID，创建空列表文件")
-            # 保存空列表到文件
-            tmp_dir = TmpDir().path()
-            friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
-            with open(friend_list_file, 'w', encoding='utf-8') as f:
-                json.dump([], f, ensure_ascii=False)
-            return True
-            
-        friend_list = []
-        
-        # 更新全局进度状态
-        global_update_status['friend_total'] = len(friends)
-        global_update_status['friend_update_progress'] = 0
+        # 设置全局状态
         global_update_status['friend_updating'] = True
         
-        # 批量获取好友信息,每批20个(API限制)
-        batch_size = 20
-        for i in range(0, len(friends), batch_size):
-            batch_friends = friends[i:i + batch_size]
+        if conf().get("channel_type") != "gewechat":
+            logger.warning("当前渠道不支持此功能")
+            return False
+        
+        from lib.gewechat.client import GewechatClient
+        
+        try:
+            base_url = conf().get("gewechat_base_url")
+            token = conf().get("gewechat_token", "")
+            app_id = conf().get("gewechat_app_id")
             
-            def get_batch_info():
-                return client.get_detail_info(app_id, batch_friends)
+            if not all([base_url, app_id]):
+                logger.error("gewechat配置不完整")
+                return False
             
-            try:
-                info_json = retry_on_failure(get_batch_info)
-                if info_json.get("ret") == 200:
-                    data_list = info_json.get("data", [])
-                    for friend_info in data_list:
-                        if friend_info.get("nickName"):
-                            friend_list.append(friend_info)
-                else:
-                    logger.warning(f"获取好友信息失败: {info_json}")
-            except Exception as e:
-                logger.error(f"处理好友批次时出错: {e}")
-                continue
+            logger.info(f"开始更新好友列表: base_url={base_url}, app_id={app_id}")
+            client = GewechatClient(base_url, token)
             
-            # 更新进度
-            global_update_status['friend_update_progress'] = min(i + batch_size, len(friends))
-            logger.info(f"已处理 {global_update_status['friend_update_progress']}/{len(friends)} 个好友")
-        
-        # 保存到文件
-        tmp_dir = TmpDir().path()
-        friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
-        
-        with open(friend_list_file, 'w', encoding='utf-8') as f:
-            json.dump(friend_list, f, ensure_ascii=False)
-        
-        logger.info(f"好友列表更新成功，共{len(friend_list)}个好友")
-        
-        # 更新完成，重置状态
+            # 获取好友列表
+            logger.info("获取联系人列表...")
+            contacts_json = client.fetch_contacts_list(app_id)
+            if contacts_json.get("ret") != 200:
+                logger.error(f"获取联系人列表失败: {contacts_json}")
+                return False
+            
+            friends = contacts_json["data"].get("friends", [])
+            logger.info(f"找到 {len(friends)} 个好友ID")
+            
+            # 直接检查是否有好友ID
+            if not friends:
+                logger.warning("未找到好友ID，创建空列表文件")
+                # 保存空列表到文件
+                tmp_dir = TmpDir().path()
+                friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
+                with open(friend_list_file, 'w', encoding='utf-8') as f:
+                    json.dump([], f, ensure_ascii=False)
+                return True
+                
+            friend_list = []
+            
+            # 更新全局进度状态
+            global_update_status['friend_total'] = len(friends)
+            global_update_status['friend_update_progress'] = 0
+            
+            # 批量获取好友信息,每批20个(API限制)
+            batch_size = 20
+            for i in range(0, len(friends), batch_size):
+                batch_friends = friends[i:i + batch_size]
+                
+                def get_batch_info():
+                    return client.get_detail_info(app_id, batch_friends)
+                
+                try:
+                    info_json = retry_on_failure(get_batch_info)
+                    if info_json.get("ret") == 200:
+                        data_list = info_json.get("data", [])
+                        for friend_info in data_list:
+                            if friend_info.get("nickName"):
+                                friend_list.append(friend_info)
+                    else:
+                        logger.warning(f"获取好友信息失败: {info_json}")
+                except Exception as e:
+                    logger.error(f"处理好友批次时出错: {e}")
+                    continue
+                
+                # 更新进度
+                global_update_status['friend_update_progress'] = min(i + batch_size, len(friends))
+                logger.info(f"已处理 {global_update_status['friend_update_progress']}/{len(friends)} 个好友")
+            
+            # 保存到文件
+            tmp_dir = TmpDir().path()
+            friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
+            
+            with open(friend_list_file, 'w', encoding='utf-8') as f:
+                json.dump(friend_list, f, ensure_ascii=False)
+            
+            logger.info(f"好友列表更新成功，共{len(friend_list)}个好友")
+            
+            # 更新完成，重置状态
+            global_update_status['friend_updating'] = False
+            global_update_status['friend_last_update'] = datetime.datetime.now()
+            return True
+        except Exception as e:
+            logger.error(f"更新好友列表时发生错误: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            
+            # 出错时也需要重置状态
+            global_update_status['friend_updating'] = False
+            return False
+    finally:
+        # 无论成功失败，都需要重置状态并释放锁
         global_update_status['friend_updating'] = False
-        global_update_status['friend_last_update'] = datetime.datetime.now()
-        return True
-    except Exception as e:
-        logger.error(f"更新好友列表时发生错误: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        
-        # 出错时也需要重置状态
-        global_update_status['friend_updating'] = False
-        return False
+        contact_update_lock.release()
 
 def update_group_list():
     """更新群组列表"""
-    if conf().get("channel_type") != "gewechat":
-        logger.warning("当前渠道不支持此功能")
+    # 使用线程锁确保同一时间只有一个更新操作
+    if not group_update_lock.acquire(blocking=False):
+        logger.warning("另一个群组更新操作正在进行中，忽略此次请求")
         return False
-    
-    from lib.gewechat.client import GewechatClient
     
     try:
-        base_url = conf().get("gewechat_base_url")
-        token = conf().get("gewechat_token", "")
-        app_id = conf().get("gewechat_app_id")
-        
-        if not all([base_url, app_id]):
-            logger.error("gewechat配置不完整")
-            return False
-        
-        logger.info(f"开始更新群组列表: base_url={base_url}, app_id={app_id}")
-        client = GewechatClient(base_url, token)
-        
-        # 获取群聊列表
-        logger.info("获取联系人列表...")
-        contacts_json = client.fetch_contacts_list(app_id)
-        if contacts_json.get("ret") != 200:
-            logger.error(f"获取联系人列表失败: {contacts_json}")
-            return False
-        
-        chatrooms = contacts_json["data"].get("chatrooms", [])
-        logger.info(f"找到 {len(chatrooms)} 个群聊ID")
-        
-        chatroom_list = []
-        
-        # 直接检查是否有群聊ID
-        if not chatrooms:
-            logger.warning("未找到群聊ID，创建空列表文件")
-            # 保存空列表到文件
-            tmp_dir = TmpDir().path()
-            chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
-            with open(chatroom_list_file, 'w', encoding='utf-8') as f:
-                json.dump([], f, ensure_ascii=False)
-            return True
-        
-        # 更新全局进度状态
-        global_update_status['group_total'] = len(chatrooms)
-        global_update_status['group_update_progress'] = 0
+        # 设置全局状态
         global_update_status['group_updating'] = True
         
-        # 获取每个群聊的详细信息(群组API只支持单个查询)
-        for i, chatroom_id in enumerate(chatrooms):
-            def get_chatroom_info():
-                return client.get_chatroom_info(app_id, chatroom_id)
+        if conf().get("channel_type") != "gewechat":
+            logger.warning("当前渠道不支持此功能")
+            return False
+        
+        from lib.gewechat.client import GewechatClient
+        
+        try:
+            base_url = conf().get("gewechat_base_url")
+            token = conf().get("gewechat_token", "")
+            app_id = conf().get("gewechat_app_id")
             
-            try:
-                info_json = retry_on_failure(get_chatroom_info)
-                if info_json.get("ret") == 200:
-                    room_info = info_json["data"]
-                    if room_info.get("nickName"):
-                        chatroom_list.append(room_info)
-                else:
-                    logger.warning(f"获取群聊 {chatroom_id} 详情失败: {info_json}")
-            except Exception as e:
-                logger.error(f"处理群聊 {chatroom_id} 时出错: {e}")
-                continue
+            if not all([base_url, app_id]):
+                logger.error("gewechat配置不完整")
+                return False
             
-            # 更新进度
-            global_update_status['group_update_progress'] = i + 1
-            if (i + 1) % 10 == 0:  # 每10个群组记录一次进度
-                logger.info(f"已处理 {i + 1}/{len(chatrooms)} 个群组")
-        
-        # 保存到文件
-        tmp_dir = TmpDir().path()
-        chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
-        
-        with open(chatroom_list_file, 'w', encoding='utf-8') as f:
-            json.dump(chatroom_list, f, ensure_ascii=False)
-        
-        logger.info(f"群组列表更新成功，共{len(chatroom_list)}个群组")
-        
-        # 更新完成，重置状态
+            logger.info(f"开始更新群组列表: base_url={base_url}, app_id={app_id}")
+            client = GewechatClient(base_url, token)
+            
+            # 获取群聊列表
+            logger.info("获取联系人列表...")
+            contacts_json = client.fetch_contacts_list(app_id)
+            if contacts_json.get("ret") != 200:
+                logger.error(f"获取联系人列表失败: {contacts_json}")
+                return False
+            
+            chatrooms = contacts_json["data"].get("chatrooms", [])
+            logger.info(f"找到 {len(chatrooms)} 个群聊ID")
+            
+            chatroom_list = []
+            
+            # 直接检查是否有群聊ID
+            if not chatrooms:
+                logger.warning("未找到群聊ID，创建空列表文件")
+                # 保存空列表到文件
+                tmp_dir = TmpDir().path()
+                chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
+                with open(chatroom_list_file, 'w', encoding='utf-8') as f:
+                    json.dump([], f, ensure_ascii=False)
+                return True
+            
+            # 更新全局进度状态
+            global_update_status['group_total'] = len(chatrooms)
+            global_update_status['group_update_progress'] = 0
+            
+            # 获取每个群聊的详细信息(群组API只支持单个查询)
+            for i, chatroom_id in enumerate(chatrooms):
+                def get_chatroom_info():
+                    return client.get_chatroom_info(app_id, chatroom_id)
+                
+                try:
+                    info_json = retry_on_failure(get_chatroom_info)
+                    if info_json.get("ret") == 200:
+                        room_info = info_json["data"]
+                        if room_info.get("nickName"):
+                            chatroom_list.append(room_info)
+                    else:
+                        logger.warning(f"获取群聊 {chatroom_id} 详情失败: {info_json}")
+                except Exception as e:
+                    logger.error(f"处理群聊 {chatroom_id} 时出错: {e}")
+                    continue
+                
+                # 更新进度
+                global_update_status['group_update_progress'] = i + 1
+                if (i + 1) % 10 == 0:  # 每10个群组记录一次进度
+                    logger.info(f"已处理 {i + 1}/{len(chatrooms)} 个群组")
+            
+            # 保存到文件
+            tmp_dir = TmpDir().path()
+            chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
+            
+            with open(chatroom_list_file, 'w', encoding='utf-8') as f:
+                json.dump(chatroom_list, f, ensure_ascii=False)
+            
+            logger.info(f"群组列表更新成功，共{len(chatroom_list)}个群组")
+            
+            # 更新完成，重置状态
+            global_update_status['group_updating'] = False
+            global_update_status['group_last_update'] = datetime.datetime.now()
+            return True
+        except Exception as e:
+            logger.error(f"更新群组列表时发生错误: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            
+            # 出错时也需要重置状态
+            global_update_status['group_updating'] = False
+            return False
+    finally:
+        # 无论成功失败，都需要重置状态并释放锁
         global_update_status['group_updating'] = False
-        global_update_status['group_last_update'] = datetime.datetime.now()
-        return True
-    except Exception as e:
-        logger.error(f"更新群组列表时发生错误: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        
-        # 出错时也需要重置状态
-        global_update_status['group_updating'] = False
-        return False
+        group_update_lock.release()
 
 def get_contacts():
     """获取联系人和群组列表，只读取现有文件，不触发更新"""
@@ -1159,10 +1260,11 @@ def get_status():
     avatar_path = None
     is_online = False
     
-    if conf().get("channel_type") == "gewechat" and is_running:
+    if conf().get("channel_type") == "gewechat":
         is_online, _ = check_gewechat_online()
         if is_online:
             nickname, avatar_path = get_gewechat_profile()
+    
     
     status_data = {
         "is_running": is_running,
@@ -1180,6 +1282,20 @@ def get_status():
 def restart_service():
     """重启Bot服务"""
     success, message = start_run()
+    return jsonify({"success": success, "message": message})
+
+@app.route('/api/stop', methods=['POST'])
+@login_required
+def api_stop_service():
+    """停止Bot服务的API端点"""
+    success, message = stop_bot_service()
+    return jsonify({"success": success, "message": message})
+
+@app.route('/api/start', methods=['POST'])
+@login_required
+def api_start_service():
+    """启动Bot服务的API端点"""
+    success, message = start_bot_service()
     return jsonify({"success": success, "message": message})
 
 @app.route('/api/restart_webpanel', methods=['POST'])
@@ -1506,10 +1622,13 @@ def api_get_contacts():
 def api_update_friends():
     """更新通讯录"""
     try:
+        # 不需要在这里检查锁，update_friend_list函数内部会检查
         # 如果已经在更新中，返回提示
-        if global_update_status['friend_updating']:
+        if global_update_status['friend_updating'] or not contact_update_lock.acquire(blocking=False):
             logger.info("通讯录更新已在进行中，忽略重复请求")
             return jsonify({"success": False, "message": "通讯录更新已在进行中"})
+        
+        contact_update_lock.release()  # 立即释放锁，让更新函数去获取它
             
         # 在新线程中执行，避免阻塞API响应
         logger.info("手动触发通讯录更新")
@@ -1524,10 +1643,13 @@ def api_update_friends():
 def api_update_rooms():
     """更新群组详情"""
     try:
+        # 不需要在这里检查锁，update_group_list函数内部会检查
         # 如果已经在更新中，返回提示
-        if global_update_status['group_updating']:
+        if global_update_status['group_updating'] or not group_update_lock.acquire(blocking=False):
             logger.info("群组详情更新已在进行中，忽略重复请求")
             return jsonify({"success": False, "message": "群组详情更新已在进行中"})
+            
+        group_update_lock.release()  # 立即释放锁，让更新函数去获取它
             
         # 在新线程中执行，避免阻塞API响应
         logger.info("手动触发群组详情更新")
@@ -1883,75 +2005,6 @@ if __name__ == "__main__":
             time.sleep(2)  # 给一些时间让旧服务器关闭
             continue
         else:
-            break  # 如果不是由重启标志触发的退出，则退出循环 
+            break  # 如果不是由重启标志触发的退出，则退出循环
 
-# ================ Bot服务控制相关 ================
-def stop_bot_service():
-    """停止Bot服务"""
-    global current_process_instance
-    
-    try:
-        if current_process_instance is None or not current_process_instance.is_alive():
-            logger.info("[Admin] Bot服务已经停止")
-            return True, "Bot服务已经停止"
-        
-        logger.info("[Admin] 正在停止Bot服务...")
-        
-        # 尝试优雅终止进程
-        current_process_instance.terminate()
-        current_process_instance.join(5)  # 等待最多5秒
-        
-        # 检查进程是否还在运行
-        if current_process_instance.is_alive():
-            logger.warning("[Admin] Bot进程未能在5秒内终止，强制杀死...")
-            current_process_instance.kill()
-            current_process_instance.join(2)
-        
-        # 确认进程已停止
-        if not current_process_instance.is_alive():
-            logger.info("[Admin] Bot服务已成功停止")
-            return True, "Bot服务已成功停止"
-        else:
-            logger.error("[Admin] 无法停止Bot服务")
-            return False, "无法停止Bot服务"
-    
-    except Exception as e:
-        logger.error(f"[Admin] 停止Bot服务时发生错误: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return False, f"停止Bot服务失败: {str(e)}"
 
-def start_bot_service():
-    """启动Bot服务"""
-    global current_process_instance
-    
-    try:
-        # 检查服务是否已经在运行
-        if current_process_instance is not None and current_process_instance.is_alive():
-            logger.info("[Admin] Bot服务已经在运行")
-            return True, "Bot服务已经在运行"
-        
-        logger.info("[Admin] 正在启动Bot服务...")
-        
-        # 使用与run_bot函数相同的逻辑
-        return run_bot()
-    
-    except Exception as e:
-        logger.error(f"[Admin] 启动Bot服务时发生错误: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return False, f"启动Bot服务失败: {str(e)}"
-
-@app.route('/api/stop', methods=['POST'])
-@login_required
-def api_stop_service():
-    """停止Bot服务的API端点"""
-    success, message = stop_bot_service()
-    return jsonify({"success": success, "message": message})
-
-@app.route('/api/start', methods=['POST'])
-@login_required
-def api_start_service():
-    """启动Bot服务的API端点"""
-    success, message = start_bot_service()
-    return jsonify({"success": success, "message": message})

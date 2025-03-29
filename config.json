@@ -2,7 +2,7 @@
     "channel_type": "gewechat",
     "debug": false,
     "dify_api_base": "http://121.40.50.245/v1",
-    "dify_api_key": "app-1EQXHJCVZeKI21r8J1l7vpx2",
+    "dify_api_key": "app-AfCKeSiLKpZdWNL4PXCLIlYM",
     "dify_app_type": "chatbot",
     "gewechat_app_id": "wx_oZuUdjGNo4_nhBdh78IXa",
     "gewechat_base_url": "http://nas.667766.best:2533/v2/api",
