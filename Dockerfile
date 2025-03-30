@@ -21,6 +21,7 @@ RUN apt-get update \
         gcc \
         g++ \
         make \
+        curl \
     && cd ${BUILD_PREFIX} \
     && cp config-template.json config.json \
     && /usr/local/bin/python -m pip install --no-cache --upgrade pip \

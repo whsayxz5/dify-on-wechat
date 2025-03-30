@@ -47,16 +47,34 @@ chmod -R 755 logs 2>/dev/null || true
 cleanup_ports() {
     print_blue "检查并清理端口..."
     
+    # 检查是否在Docker容器内运行
+    if [ -f "/.dockerenv" ]; then
+        print_yellow "检测到Docker环境，跳过端口清理以避免容器崩溃"
+        return 0
+    fi
+    
+    # 检查是否有docker容器在使用这些端口
+    DOCKER_USING_7860=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} docker port {} 2>/dev/null | grep -q "7860" && echo "true" || echo "false")
+    DOCKER_USING_9919=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} docker port {} 2>/dev/null | grep -q "9919" && echo "true" || echo "false")
+    
     # 清理7860端口
     if lsof -i:7860 > /dev/null 2>&1; then
-        print_yellow "发现端口7860被占用，正在尝试释放..."
-        lsof -ti:7860 | xargs kill -9 2>/dev/null || print_red "无法释放端口7860，可能需要手动终止进程"
+        if [ "$DOCKER_USING_7860" = "true" ]; then
+            print_yellow "发现端口7860由Docker容器使用，跳过清理以避免容器崩溃"
+        else
+            print_yellow "发现端口7860被非Docker进程占用，正在尝试释放..."
+            lsof -ti:7860 | xargs kill -9 2>/dev/null || print_red "无法释放端口7860，可能需要手动终止进程"
+        fi
     fi
     
     # 清理9919端口
     if lsof -i:9919 > /dev/null 2>&1; then
-        print_yellow "发现端口9919被占用，正在尝试释放..."
-        lsof -ti:9919 | xargs kill -9 2>/dev/null || print_red "无法释放端口9919，可能需要手动终止进程"
+        if [ "$DOCKER_USING_9919" = "true" ]; then
+            print_yellow "发现端口9919由Docker容器使用，跳过清理以避免容器崩溃"
+        else
+            print_yellow "发现端口9919被非Docker进程占用，正在尝试释放..."
+            lsof -ti:9919 | xargs kill -9 2>/dev/null || print_red "无法释放端口9919，可能需要手动终止进程"
+        fi
     fi
 }
 
@@ -153,6 +171,26 @@ start_local_background() {
 # Docker重新构建启动函数
 start_docker_rebuild() {
     print_green "Docker模式(重新构建)启动 dify-on-wechat 服务..."
+    
+    # 检查是否有已有容器在运行
+    if command -v docker-compose &> /dev/null; then
+        CONTAINERS=$(docker-compose ps -q 2>/dev/null)
+    else
+        CONTAINERS=$(docker compose ps -q 2>/dev/null)
+    fi
+    
+    if [ ! -z "$CONTAINERS" ]; then
+        print_yellow "发现已运行的dify-on-wechat容器，先停止它们..."
+        if command -v docker-compose &> /dev/null; then
+            docker-compose down
+        else
+            docker compose down
+        fi
+        # 等待容器完全停止
+        sleep 3
+    fi
+    
+    # 在Docker操作前检查端口
     cleanup_ports
     
     # 检查 Docker 是否安装
@@ -184,6 +222,26 @@ start_docker_rebuild() {
 # Docker使用现有镜像启动函数
 start_docker_existing() {
     print_green "Docker模式(使用现有镜像)启动 dify-on-wechat 服务..."
+    
+    # 检查是否有已有容器在运行
+    if command -v docker-compose &> /dev/null; then
+        CONTAINERS=$(docker-compose ps -q 2>/dev/null)
+    else
+        CONTAINERS=$(docker compose ps -q 2>/dev/null)
+    fi
+    
+    if [ ! -z "$CONTAINERS" ]; then
+        print_yellow "发现已运行的dify-on-wechat容器，先停止它们..."
+        if command -v docker-compose &> /dev/null; then
+            docker-compose down
+        else
+            docker compose down
+        fi
+        # 等待容器完全停止
+        sleep 3
+    fi
+    
+    # 在Docker操作前检查端口
     cleanup_ports
     
     # 检查 Docker 是否安装
@@ -227,6 +285,36 @@ stop_service() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     print_blue "当前目录: ${SCRIPT_DIR}"
     
+    # 检查是否在Docker容器内运行
+    if [ -f "/.dockerenv" ]; then
+        print_yellow "检测到Docker环境，推荐从容器外部使用docker-compose down命令停止服务"
+        print_yellow "在容器内直接停止服务可能会导致容器崩溃"
+        read -p "是否继续? (y/n): " confirm
+        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+            print_blue "取消操作"
+            return 0
+        fi
+    fi
+    
+    # 检查是否有docker容器在使用这些端口
+    DOCKER_USING_7860=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} docker port {} 2>/dev/null | grep -q "7860" && echo "true" || echo "false")
+    DOCKER_USING_9919=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} docker port {} 2>/dev/null | grep -q "9919" && echo "true" || echo "false")
+    
+    # 如果docker-compose可用，尝试优先停止docker服务（仅限当前目录）
+    if [ -f "${SCRIPT_DIR}/docker-compose.yml" ]; then
+        print_blue "检测到docker-compose.yml，尝试停止Docker容器..."
+        
+        if command -v docker-compose &> /dev/null; then
+            cd "${SCRIPT_DIR}" && docker-compose ps 2>/dev/null
+            cd "${SCRIPT_DIR}" && docker-compose down 2>/dev/null && print_green "已停止Docker容器，跳过进程检查" && return 0 || print_yellow "没有运行中的docker容器或停止失败，继续检查本地进程"
+        elif command -v docker &> /dev/null && command -v docker compose &> /dev/null; then
+            cd "${SCRIPT_DIR}" && docker compose ps 2>/dev/null
+            cd "${SCRIPT_DIR}" && docker compose down 2>/dev/null && print_green "已停止Docker容器，跳过进程检查" && return 0 || print_yellow "没有运行中的docker容器或停止失败，继续检查本地进程"
+        fi
+    else
+        print_yellow "未找到docker-compose.yml，跳过Docker容器清理"
+    fi
+    
     # 停止本地运行的admin_ui.py和Bot.py进程
     print_blue "查找并停止本程序相关进程..."
     
@@ -240,25 +328,32 @@ stop_service() {
         
         # 获取占用端口的PID
         PORT_7860_PIDS=$(lsof -ti:7860)
-        for pid in $PORT_7860_PIDS; do
-            # 获取进程命令
-            CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
-            CMDNAME=$(ps -p $pid -o comm= 2>/dev/null || echo "未知")
-            
-            print_yellow "正在终止PID为 $pid 的进程 ($CMDNAME), 命令行: $CMD"
-            
-            # 先尝试使用SIGTERM优雅终止
-            kill -15 $pid 2>/dev/null
-            sleep 1
-            
-            # 检查进程是否仍然存在
-            if ps -p $pid > /dev/null 2>&1; then
-                print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
-                kill -9 $pid 2>/dev/null && print_green "已终止进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
-            else
-                print_green "已优雅终止进程 $pid"
-            fi
-        done
+        
+        # 检查是否被Docker使用
+        if [ "$DOCKER_USING_7860" = "true" ]; then
+            print_yellow "警告：端口7860被Docker容器使用，请使用docker-compose down命令停止服务"
+            print_yellow "强制终止可能导致容器崩溃，跳过此端口处理"
+        else
+            for pid in $PORT_7860_PIDS; do
+                # 获取进程命令
+                CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
+                CMDNAME=$(ps -p $pid -o comm= 2>/dev/null || echo "未知")
+                
+                print_yellow "正在终止PID为 $pid 的进程 ($CMDNAME), 命令行: $CMD"
+                
+                # 先尝试使用SIGTERM优雅终止
+                kill -15 $pid 2>/dev/null
+                sleep 1
+                
+                # 检查进程是否仍然存在
+                if ps -p $pid > /dev/null 2>&1; then
+                    print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
+                    kill -9 $pid 2>/dev/null && print_green "已终止进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
+                else
+                    print_green "已优雅终止进程 $pid"
+                fi
+            done
+        fi
     else
         print_green "端口7860未被占用"
     fi
@@ -270,25 +365,32 @@ stop_service() {
         
         # 获取占用端口的PID
         PORT_9919_PIDS=$(lsof -ti:9919)
-        for pid in $PORT_9919_PIDS; do
-            # 获取进程命令
-            CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
-            CMDNAME=$(ps -p $pid -o comm= 2>/dev/null || echo "未知")
-            
-            print_yellow "正在终止PID为 $pid 的进程 ($CMDNAME), 命令行: $CMD"
-            
-            # 先尝试使用SIGTERM优雅终止
-            kill -15 $pid 2>/dev/null
-            sleep 1
-            
-            # 检查进程是否仍然存在
-            if ps -p $pid > /dev/null 2>&1; then
-                print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
-                kill -9 $pid 2>/dev/null && print_green "已终止进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
-            else
-                print_green "已优雅终止进程 $pid"
-            fi
-        done
+        
+        # 检查是否被Docker使用
+        if [ "$DOCKER_USING_9919" = "true" ]; then
+            print_yellow "警告：端口9919被Docker容器使用，请使用docker-compose down命令停止服务"
+            print_yellow "强制终止可能导致容器崩溃，跳过此端口处理"
+        else
+            for pid in $PORT_9919_PIDS; do
+                # 获取进程命令
+                CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
+                CMDNAME=$(ps -p $pid -o comm= 2>/dev/null || echo "未知")
+                
+                print_yellow "正在终止PID为 $pid 的进程 ($CMDNAME), 命令行: $CMD"
+                
+                # 先尝试使用SIGTERM优雅终止
+                kill -15 $pid 2>/dev/null
+                sleep 1
+                
+                # 检查进程是否仍然存在
+                if ps -p $pid > /dev/null 2>&1; then
+                    print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
+                    kill -9 $pid 2>/dev/null && print_green "已终止进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
+                else
+                    print_green "已优雅终止进程 $pid"
+                fi
+            done
+        fi
     else
         print_green "端口9919未被占用"
     fi
@@ -344,21 +446,6 @@ stop_service() {
         done
     else
         print_green "未找到Bot.py进程"
-    fi
-    
-    # 如果docker-compose可用，尝试停止docker服务（仅限当前目录）
-    if [ -f "${SCRIPT_DIR}/docker-compose.yml" ]; then
-        print_blue "检测到docker-compose.yml，尝试停止Docker容器..."
-        
-        if command -v docker-compose &> /dev/null; then
-            cd "${SCRIPT_DIR}" && docker-compose ps 2>/dev/null
-            cd "${SCRIPT_DIR}" && docker-compose down 2>/dev/null && print_green "已停止Docker容器" || print_yellow "没有运行中的docker容器"
-        elif command -v docker &> /dev/null && command -v docker compose &> /dev/null; then
-            cd "${SCRIPT_DIR}" && docker compose ps 2>/dev/null
-            cd "${SCRIPT_DIR}" && docker compose down 2>/dev/null && print_green "已停止Docker容器" || print_yellow "没有运行中的docker容器"
-        fi
-    else
-        print_yellow "未找到docker-compose.yml，跳过Docker容器清理"
     fi
     
     # 最终检查端口
