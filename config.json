@@ -11,6 +11,7 @@
     "gewechat_token": "82738c1296404ac494f0473e25ad8516",
     "group_chat_prefix": ["@bot"],
     "group_name_white_list": ["ALL_GROUP"],
+    "nick_name_black_list": ["Darren"], 
     "no_need_at": true,
     "image_recognition": true,
     "model": "dify",

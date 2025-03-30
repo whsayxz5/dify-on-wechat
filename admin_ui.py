@@ -22,6 +22,9 @@ import importlib
 import traceback
 from datetime import timedelta
 import subprocess
+import copy
+import glob
+from werkzeug.utils import secure_filename, send_from_directory
 
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, abort, flash
 from flask_socketio import SocketIO, emit
@@ -664,9 +667,19 @@ def update_friend_list():
         logger.warning("另一个通讯录更新操作正在进行中，忽略此次请求")
         return False
     
+    # 增加双重检查锁模式
+    if global_update_status['friend_updating']:
+        logger.warning("全局状态显示通讯录更新已在进行中，忽略此次请求")
+        contact_update_lock.release()
+        return False
+        
     try:
         # 设置全局状态
         global_update_status['friend_updating'] = True
+        
+        # 记录更新开始时间以便跟踪
+        update_start_time = datetime.datetime.now()
+        logger.info(f"开始更新联系人列表，时间戳: {update_start_time}")
         
         if conf().get("channel_type") != "gewechat":
             logger.warning("当前渠道不支持此功能")
@@ -735,7 +748,7 @@ def update_friend_list():
                 
                 # 更新进度
                 global_update_status['friend_update_progress'] = min(i + batch_size, len(friends))
-                logger.info(f"已处理 {global_update_status['friend_update_progress']}/{len(friends)} 个好友")
+                logger.info(f"[更新ID:{update_start_time.strftime('%H%M%S')}] 已处理 {global_update_status['friend_update_progress']}/{len(friends)} 个好友")
             
             # 保存到文件
             tmp_dir = TmpDir().path()
@@ -770,9 +783,19 @@ def update_group_list():
         logger.warning("另一个群组更新操作正在进行中，忽略此次请求")
         return False
     
+    # 增加双重检查锁模式
+    if global_update_status['group_updating']:
+        logger.warning("全局状态显示群组更新已在进行中，忽略此次请求")
+        group_update_lock.release()
+        return False
+    
     try:
         # 设置全局状态
         global_update_status['group_updating'] = True
+        
+        # 记录更新开始时间以便跟踪
+        update_start_time = datetime.datetime.now()
+        logger.info(f"开始更新群组列表，时间戳: {update_start_time}")
         
         if conf().get("channel_type") != "gewechat":
             logger.warning("当前渠道不支持此功能")
@@ -838,7 +861,7 @@ def update_group_list():
                 # 更新进度
                 global_update_status['group_update_progress'] = i + 1
                 if (i + 1) % 10 == 0:  # 每10个群组记录一次进度
-                    logger.info(f"已处理 {i + 1}/{len(chatrooms)} 个群组")
+                    logger.info(f"[更新ID:{update_start_time.strftime('%H%M%S')}] 已处理 {i + 1}/{len(chatrooms)} 个群组")
             
             # 保存到文件
             tmp_dir = TmpDir().path()
@@ -1668,9 +1691,12 @@ def api_get_update_status():
     friend_list_file = os.path.join(tmp_dir, "contact_friend.json")
     chatroom_list_file = os.path.join(tmp_dir, "contact_room.json")
     
+    # 记录当前状态副本防止并发修改
+    current_status = copy.deepcopy(global_update_status)
+    
     # 构建状态响应
     status_data = {
-        "status": global_update_status,
+        "status": current_status,
         "files": {
             "friend_file_exists": os.path.exists(friend_list_file),
             "group_file_exists": os.path.exists(chatroom_list_file)
@@ -1966,6 +1992,217 @@ def api_get_contact_info():
 def api_check_dify():
     """检查Dify API状态的API接口"""
     return jsonify(check_dify_api_status())
+
+@app.route('/logs')
+@login_required
+def logs_page():
+    """日志管理页面"""
+    return render_template('logs.html')
+
+@app.route('/api/log_files')
+@login_required
+def api_get_log_files():
+    """获取日志文件列表"""
+    try:
+        # 获取所有日志文件
+        log_files = glob.glob('logs/*.log*')
+        result = []
+        
+        for file_path in log_files:
+            file_name = os.path.basename(file_path)
+            file_stats = os.stat(file_path)
+            file_size = file_stats.st_size
+            file_mtime = datetime.datetime.fromtimestamp(file_stats.st_mtime)
+            
+            # 识别日志类别（从文件名提取）
+            log_category = file_name.split('.')[0]
+            if log_category.endswith('.1') or log_category.endswith('.2'):
+                log_category = log_category.rsplit('.', 1)[0]
+            
+            # 格式化文件大小
+            if file_size < 1024:
+                size_str = f"{file_size} B"
+            elif file_size < 1024 * 1024:
+                size_str = f"{file_size / 1024:.1f} KB"
+            else:
+                size_str = f"{file_size / (1024 * 1024):.1f} MB"
+            
+            result.append({
+                "file_name": file_name,
+                "category": log_category,
+                "size": size_str,
+                "raw_size": file_size,
+                "modified": file_mtime.strftime("%Y-%m-%d %H:%M:%S"),
+                "timestamp": int(file_mtime.timestamp())
+            })
+        
+        # 按修改时间排序（最新的在前）
+        result.sort(key=lambda x: x["timestamp"], reverse=True)
+        
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        logger.error(f"获取日志文件列表失败: {str(e)}")
+        return jsonify({"success": False, "message": f"获取日志文件列表失败: {str(e)}"})
+
+@app.route('/api/log_content')
+@login_required
+def api_get_log_content():
+    """获取日志文件内容"""
+    try:
+        file_name = request.args.get('file')
+        start_line = int(request.args.get('start', 0))
+        max_lines = int(request.args.get('lines', 500))
+        filter_level = request.args.get('level', '')
+        filter_text = request.args.get('text', '')
+        start_time = request.args.get('start_time', '')
+        end_time = request.args.get('end_time', '')
+        tail_mode = request.args.get('tail', 'false').lower() == 'true'
+        
+        # 安全检查：确保文件名只包含允许的字符
+        if not file_name or not re.match(r'^[\w\.-]+\.log[\d\.]*$', file_name):
+            return jsonify({"success": False, "message": "无效的文件名"})
+        
+        file_path = os.path.join('logs', file_name)
+        if not os.path.exists(file_path):
+            return jsonify({"success": False, "message": "文件不存在"})
+        
+        # 读取文件内容并应用过滤条件
+        log_lines = []
+        line_count = 0
+        total_lines = 0
+        matched_lines = 0
+        
+        # 如果是尾部模式，我们需要先计算文件总行数
+        if tail_mode:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for _ in f:
+                    total_lines += 1
+            
+            # 调整起始行，从文件末尾往前max_lines行开始读取
+            if total_lines > max_lines:
+                start_line = total_lines - max_lines
+            else:
+                start_line = 0
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                total_lines += 1 if not tail_mode else 0  # 在非尾部模式下计数总行数
+                
+                # 跳过到起始行之前的内容
+                if line_count < start_line:
+                    line_count += 1
+                    continue
+                
+                # 过滤日志级别
+                if filter_level and f"[{filter_level.upper()}]" not in line:
+                    line_count += 1
+                    continue
+                
+                # 过滤文本内容
+                if filter_text and filter_text.lower() not in line.lower():
+                    line_count += 1
+                    continue
+                
+                # 过滤日期时间范围
+                if start_time or end_time:
+                    # 尝试从日志中提取时间
+                    time_match = re.search(r'\[(INFO|ERROR|WARNING|DEBUG)\]\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]', line)
+                    if time_match:
+                        log_time_str = time_match.group(2)
+                        log_time = datetime.datetime.strptime(log_time_str, "%Y-%m-%d %H:%M:%S")
+                        
+                        if start_time:
+                            start_dt = datetime.datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                            if log_time < start_dt:
+                                line_count += 1
+                                continue
+                                
+                        if end_time:
+                            end_dt = datetime.datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                            if log_time > end_dt:
+                                line_count += 1
+                                continue
+                    else:
+                        # 如果无法解析时间，但设置了时间过滤，则跳过该行
+                        if start_time or end_time:
+                            line_count += 1
+                            continue
+                
+                # 处理日志格式
+                level_match = re.search(r'\[(INFO|ERROR|WARNING|DEBUG)\]', line)
+                level = level_match.group(1) if level_match else "UNKNOWN"
+                
+                log_lines.append({
+                    "line": line.strip(),
+                    "level": level
+                })
+                
+                matched_lines += 1
+                line_count += 1
+                
+                if len(log_lines) >= max_lines:
+                    break
+        
+        # 在尾部模式下，我们已经计算过总行数
+        if not tail_mode:
+            has_more = total_lines > (start_line + matched_lines)
+        else:
+            # 在尾部模式下，只有当起始行大于0时才有更多
+            has_more = start_line > 0
+        
+        return jsonify({
+            "success": True, 
+            "data": {
+                "lines": log_lines,
+                "start_line": start_line,
+                "total_lines": total_lines,
+                "has_more": has_more
+            }
+        })
+    except Exception as e:
+        logger.error(f"获取日志内容失败: {str(e)}")
+        return jsonify({"success": False, "message": f"获取日志内容失败: {str(e)}"})
+
+@app.route('/logs/<path:filename>')
+@login_required
+def download_log(filename):
+    """下载日志文件"""
+    # 安全检查：确保文件名只包含允许的字符
+    if not filename or not re.match(r'^[\w\.-]+\.log[\d\.]*$', filename):
+        abort(404)
+    
+    log_dir = os.path.join(os.getcwd(), 'logs')
+    return send_from_directory(log_dir, filename, as_attachment=True)
+
+@app.route('/api/clear_log', methods=['POST'])
+@login_required
+def clear_log():
+    try:
+        data = request.get_json()
+        if not data or 'file' not in data:
+            return jsonify({"success": False, "message": "缺少文件名参数"})
+        
+        filename = data['file']
+        # 安全检查，确保只清除日志目录下的.log文件
+        if not re.match(r'^[\w\.-]+\.log[\d\.]*$', filename):
+            return jsonify({"success": False, "message": "无效的文件名"})
+        
+        log_dir = os.path.join(os.getcwd(), 'logs')
+        log_path = os.path.join(log_dir, filename)
+        
+        # 检查文件是否存在
+        if not os.path.exists(log_path):
+            return jsonify({"success": False, "message": "日志文件不存在"})
+        
+        # 清空文件内容
+        with open(log_path, 'w') as f:
+            f.write('')
+        
+        logger.info(f"日志文件 {filename} 已被清空")
+        return jsonify({"success": True, "message": "日志已清空"})
+    except Exception as e:
+        logger.error(f"清空日志失败: {str(e)}")
+        return jsonify({"success": False, "message": f"清空日志失败: {str(e)}"})
 
 # ================ 启动应用 ================
 if __name__ == "__main__":

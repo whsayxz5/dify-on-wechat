@@ -45,7 +45,7 @@ chmod -R 755 logs 2>/dev/null || true
 
 # 清理端口函数
 cleanup_ports() {
-    print_blue "检查并清理端口..."
+    print_blue "检查端口使用情况..."
     
     # 检查是否在Docker容器内运行
     if [ -f "/.dockerenv" ]; then
@@ -53,28 +53,116 @@ cleanup_ports() {
         return 0
     fi
     
-    # 检查是否有docker容器在使用这些端口
-    DOCKER_USING_7860=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} docker port {} 2>/dev/null | grep -q "7860" && echo "true" || echo "false")
-    DOCKER_USING_9919=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} docker port {} 2>/dev/null | grep -q "9919" && echo "true" || echo "false")
+    # 检查是否有docker容器在使用端口
+    print_blue "检查Docker容器端口使用情况..."
+    DOCKER_CONTAINERS_USING_7860=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} sh -c "docker port {} 2>/dev/null | grep -q '7860' && echo {}" | xargs)
+    DOCKER_CONTAINERS_USING_9919=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} sh -c "docker port {} 2>/dev/null | grep -q '9919' && echo {}" | xargs)
     
-    # 清理7860端口
+    # 处理7860端口
     if lsof -i:7860 > /dev/null 2>&1; then
-        if [ "$DOCKER_USING_7860" = "true" ]; then
-            print_yellow "发现端口7860由Docker容器使用，跳过清理以避免容器崩溃"
+        print_yellow "发现端口7860被占用，显示占用进程信息:"
+        lsof -i:7860 -n
+        
+        if [ ! -z "$DOCKER_CONTAINERS_USING_7860" ]; then
+            print_yellow "警告: 端口7860被Docker容器使用 ($DOCKER_CONTAINERS_USING_7860)"
+            print_yellow "建议先手动停止Docker容器: docker stop $DOCKER_CONTAINERS_USING_7860"
+            print_yellow "或使用docker-compose down命令停止所有相关容器"
+            
+            read -p "是否尝试强制终止端口占用进程? (y/n，不推荐): " force_kill_7860
+            if [[ "$force_kill_7860" == "y" || "$force_kill_7860" == "Y" ]]; then
+                print_red "警告: 强制终止Docker容器进程可能导致容器异常!"
+                lsof -ti:7860 | xargs kill -9 2>/dev/null && print_green "已强制终止端口7860进程" || print_red "无法释放端口7860，请手动处理"
+            fi
         else
-            print_yellow "发现端口7860被非Docker进程占用，正在尝试释放..."
-            lsof -ti:7860 | xargs kill -9 2>/dev/null || print_red "无法释放端口7860，可能需要手动终止进程"
+            print_yellow "端口7860被非Docker进程占用，正在终止..."
+            # 获取占用端口的PID
+            PORT_7860_PIDS=$(lsof -ti:7860)
+            for pid in $PORT_7860_PIDS; do
+                # 获取进程命令
+                CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
+                CMDNAME=$(ps -p $pid -o comm= 2>/dev/null || echo "未知")
+                
+                print_yellow "终止PID为 $pid 的进程 ($CMDNAME): $CMD"
+                
+                # 先尝试使用SIGTERM优雅终止
+                kill -15 $pid 2>/dev/null
+                sleep 1
+                
+                # 检查进程是否仍然存在
+                if ps -p $pid > /dev/null 2>&1; then
+                    print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
+                    kill -9 $pid 2>/dev/null && print_green "已终止进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
+                else
+                    print_green "已优雅终止进程 $pid"
+                fi
+            done
         fi
+    else
+        print_green "端口7860未被占用"
     fi
     
-    # 清理9919端口
+    # 处理9919端口
     if lsof -i:9919 > /dev/null 2>&1; then
-        if [ "$DOCKER_USING_9919" = "true" ]; then
-            print_yellow "发现端口9919由Docker容器使用，跳过清理以避免容器崩溃"
+        print_yellow "发现端口9919被占用，显示占用进程信息:"
+        lsof -i:9919 -n
+        
+        if [ ! -z "$DOCKER_CONTAINERS_USING_9919" ]; then
+            print_yellow "警告: 端口9919被Docker容器使用 ($DOCKER_CONTAINERS_USING_9919)"
+            print_yellow "建议先手动停止Docker容器: docker stop $DOCKER_CONTAINERS_USING_9919"
+            print_yellow "或使用docker-compose down命令停止所有相关容器"
+            
+            read -p "是否尝试强制终止端口占用进程? (y/n，不推荐): " force_kill_9919
+            if [[ "$force_kill_9919" == "y" || "$force_kill_9919" == "Y" ]]; then
+                print_red "警告: 强制终止Docker容器进程可能导致容器异常!"
+                lsof -ti:9919 | xargs kill -9 2>/dev/null && print_green "已强制终止端口9919进程" || print_red "无法释放端口9919，请手动处理"
+            fi
         else
-            print_yellow "发现端口9919被非Docker进程占用，正在尝试释放..."
-            lsof -ti:9919 | xargs kill -9 2>/dev/null || print_red "无法释放端口9919，可能需要手动终止进程"
+            print_yellow "端口9919被非Docker进程占用，正在终止..."
+            # 获取占用端口的PID
+            PORT_9919_PIDS=$(lsof -ti:9919)
+            for pid in $PORT_9919_PIDS; do
+                # 获取进程命令
+                CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
+                CMDNAME=$(ps -p $pid -o comm= 2>/dev/null || echo "未知")
+                
+                print_yellow "终止PID为 $pid 的进程 ($CMDNAME): $CMD"
+                
+                # 先尝试使用SIGTERM优雅终止
+                kill -15 $pid 2>/dev/null
+                sleep 1
+                
+                # 检查进程是否仍然存在
+                if ps -p $pid > /dev/null 2>&1; then
+                    print_yellow "进程 $pid 未能优雅终止，使用SIGKILL强制终止..."
+                    kill -9 $pid 2>/dev/null && print_green "已终止进程 $pid" || print_red "无法终止进程 $pid，请手动检查"
+                else
+                    print_green "已优雅终止进程 $pid"
+                fi
+            done
         fi
+    else
+        print_green "端口9919未被占用"
+    fi
+    
+    # 最终检查端口状态
+    sleep 1
+    if lsof -i:7860 > /dev/null 2>&1 || lsof -i:9919 > /dev/null 2>&1; then
+        print_yellow "警告：仍有端口被占用，可能影响服务启动"
+        if lsof -i:7860 > /dev/null 2>&1; then
+            print_yellow "端口7860仍被占用："
+            lsof -i:7860 -n
+        fi
+        if lsof -i:9919 > /dev/null 2>&1; then
+            print_yellow "端口9919仍被占用："
+            lsof -i:9919 -n
+        fi
+        read -p "是否继续? (y/n): " continue_with_ports_used
+        if [[ "$continue_with_ports_used" != "y" && "$continue_with_ports_used" != "Y" ]]; then
+            print_red "操作取消，请手动释放端口后重试"
+            exit 1
+        fi
+    else
+        print_green "所有端口已成功释放"
     fi
 }
 
@@ -257,11 +345,17 @@ start_docker_existing() {
     fi
     
     # 检查镜像是否存在
-    echo "检查 dify-on-wechat:local 镜像是否存在..."
-    if ! docker images | grep -q "dify-on-wechat" | grep -q "local"; then
-        print_yellow "本地镜像不存在，将改为重新构建..."
+    print_blue "检查 dify-on-wechat:local 镜像是否存在..."
+    
+    # 使用精确匹配且提供更多信息
+    IMAGE_INFO=$(docker images dify-on-wechat:local --format "{{.Repository}}:{{.Tag}} (创建于 {{.CreatedSince}})" 2>/dev/null)
+    
+    if [ -z "$IMAGE_INFO" ]; then
+        print_yellow "本地镜像 dify-on-wechat:local 不存在，将改为重新构建..."
         start_docker_rebuild
         return
+    else
+        print_green "找到本地镜像: $IMAGE_INFO"
     fi
     
     # 启动服务
@@ -297,8 +391,9 @@ stop_service() {
     fi
     
     # 检查是否有docker容器在使用这些端口
-    DOCKER_USING_7860=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} docker port {} 2>/dev/null | grep -q "7860" && echo "true" || echo "false")
-    DOCKER_USING_9919=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} docker port {} 2>/dev/null | grep -q "9919" && echo "true" || echo "false")
+    print_blue "检查Docker容器端口使用情况..."
+    DOCKER_CONTAINERS_USING_7860=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} sh -c "docker port {} 2>/dev/null | grep -q '7860' && echo {}" | xargs)
+    DOCKER_CONTAINERS_USING_9919=$(docker ps --format "{{.Names}}" 2>/dev/null | xargs -I {} sh -c "docker port {} 2>/dev/null | grep -q '9919' && echo {}" | xargs)
     
     # 如果docker-compose可用，尝试优先停止docker服务（仅限当前目录）
     if [ -f "${SCRIPT_DIR}/docker-compose.yml" ]; then
@@ -306,10 +401,18 @@ stop_service() {
         
         if command -v docker-compose &> /dev/null; then
             cd "${SCRIPT_DIR}" && docker-compose ps 2>/dev/null
-            cd "${SCRIPT_DIR}" && docker-compose down 2>/dev/null && print_green "已停止Docker容器，跳过进程检查" && return 0 || print_yellow "没有运行中的docker容器或停止失败，继续检查本地进程"
+            if cd "${SCRIPT_DIR}" && docker-compose down 2>/dev/null; then
+                print_green "已停止Docker容器，继续检查本地进程"
+            else
+                print_yellow "没有运行中的docker容器或停止失败，继续检查本地进程"
+            fi
         elif command -v docker &> /dev/null && command -v docker compose &> /dev/null; then
             cd "${SCRIPT_DIR}" && docker compose ps 2>/dev/null
-            cd "${SCRIPT_DIR}" && docker compose down 2>/dev/null && print_green "已停止Docker容器，跳过进程检查" && return 0 || print_yellow "没有运行中的docker容器或停止失败，继续检查本地进程"
+            if cd "${SCRIPT_DIR}" && docker compose down 2>/dev/null; then
+                print_green "已停止Docker容器，继续检查本地进程"
+            else
+                print_yellow "没有运行中的docker容器或停止失败，继续检查本地进程"
+            fi
         fi
     else
         print_yellow "未找到docker-compose.yml，跳过Docker容器清理"
@@ -326,14 +429,14 @@ stop_service() {
         print_yellow "发现7860端口被占用，显示占用进程信息:"
         lsof -i:7860 -n
         
-        # 获取占用端口的PID
-        PORT_7860_PIDS=$(lsof -ti:7860)
-        
         # 检查是否被Docker使用
-        if [ "$DOCKER_USING_7860" = "true" ]; then
-            print_yellow "警告：端口7860被Docker容器使用，请使用docker-compose down命令停止服务"
+        if [ ! -z "$DOCKER_CONTAINERS_USING_7860" ]; then
+            print_yellow "警告：端口7860被Docker容器使用 ($DOCKER_CONTAINERS_USING_7860)"
+            print_yellow "请使用docker stop $DOCKER_CONTAINERS_USING_7860 或docker-compose down命令停止服务"
             print_yellow "强制终止可能导致容器崩溃，跳过此端口处理"
         else
+            # 获取占用端口的PID
+            PORT_7860_PIDS=$(lsof -ti:7860)
             for pid in $PORT_7860_PIDS; do
                 # 获取进程命令
                 CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")
@@ -363,14 +466,14 @@ stop_service() {
         print_yellow "发现9919端口被占用，显示占用进程信息:"
         lsof -i:9919 -n
         
-        # 获取占用端口的PID
-        PORT_9919_PIDS=$(lsof -ti:9919)
-        
         # 检查是否被Docker使用
-        if [ "$DOCKER_USING_9919" = "true" ]; then
-            print_yellow "警告：端口9919被Docker容器使用，请使用docker-compose down命令停止服务"
+        if [ ! -z "$DOCKER_CONTAINERS_USING_9919" ]; then
+            print_yellow "警告：端口9919被Docker容器使用 ($DOCKER_CONTAINERS_USING_9919)"
+            print_yellow "请使用docker stop $DOCKER_CONTAINERS_USING_9919 或docker-compose down命令停止服务"
             print_yellow "强制终止可能导致容器崩溃，跳过此端口处理"
         else
+            # 获取占用端口的PID
+            PORT_9919_PIDS=$(lsof -ti:9919)
             for pid in $PORT_9919_PIDS; do
                 # 获取进程命令
                 CMD=$(ps -p $pid -o command= 2>/dev/null || echo "未知命令")

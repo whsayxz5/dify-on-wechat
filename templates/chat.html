@@ -674,7 +674,9 @@
                     },
                     statusTimer: null,
                     autoRefreshTimer: null,
-                    isUpdatingContacts: false // 添加本地防抖标志
+                    isUpdatingContacts: false,
+                    _lastStatusCheck: null,
+                    _lastInactiveCheck: null
                 }
             },
             computed: {
@@ -740,17 +742,29 @@
                     // 立即获取一次状态
                     this.checkUpdateStatus();
                     
-                    // 每2秒轮询一次状态
+                    // 更新轮询逻辑，增加频率控制
                     this.statusTimer = setInterval(() => {
-                        // 只有在更新过程中才需要频繁轮询
+                        // 只有在更新过程中才需要频繁轮询，且使用3秒间隔而不是2秒
                         if (this.updateStatus.friend_updating || this.updateStatus.group_updating) {
                             this.checkUpdateStatus();
+                        } else {
+                            // 如果没有更新进行中，则10秒轮询一次即可
+                            if (!this._lastInactiveCheck || (Date.now() - this._lastInactiveCheck > 10000)) {
+                                this.checkUpdateStatus();
+                                this._lastInactiveCheck = Date.now();
+                            }
                         }
-                    }, 2000);
+                    }, 3000);
                 },
                 
-                // 获取更新状态
+                // 获取更新状态的防抖动实现
                 async checkUpdateStatus() {
+                    // 防止频繁请求，增加最小间隔
+                    if (this._lastStatusCheck && (Date.now() - this._lastStatusCheck < 2000)) {
+                        return; // 2秒内不重复检查
+                    }
+                    
+                    this._lastStatusCheck = Date.now();
                     try {
                         const response = await axios.get('/api/update_status');
                         if (response.data.success) {
