@@ -598,7 +598,10 @@
             },
             mounted() {
                 this.loadStatus();
-                this.checkDifyApiStatus();
+                // 不要在加载时立即检查API状态，而是延迟检查，确保页面能够正常加载
+                setTimeout(() => {
+                    this.checkDifyApiStatus();
+                }, 1000);
                 // 每60秒自动刷新一次状态
                 setInterval(this.loadStatus, 60000);
                 // 每5分钟检查一次API状态
@@ -614,6 +617,8 @@
                         })
                         .catch(error => {
                             console.error('获取状态失败:', error);
+                            // 确保即使获取状态失败，也不影响页面显示
+                            this.showToast('获取状态信息失败，请检查网络连接', 'warning');
                         });
                 },
                 getSystemStats() {
@@ -625,11 +630,20 @@
                         })
                         .catch(error => {
                             console.error('获取系统状态失败:', error);
+                            // 确保即使获取系统状态失败，也不影响页面显示
                         });
                 },
                 checkDifyApiStatus() {
-                    axios.get('/api/check_dify')
+                    // 添加超时设置，防止长时间挂起
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+                    
+                    axios.get('/api/check_dify', { 
+                        signal: controller.signal,
+                        timeout: 5000  // 设置axios超时
+                    })
                         .then(response => {
+                            clearTimeout(timeoutId);
                             if (response.data.success) {
                                 this.systemStats.dify_api_status = '正常';
                             } else {
@@ -637,8 +651,9 @@
                             }
                         })
                         .catch(error => {
+                            clearTimeout(timeoutId);
                             console.error('检查Dify API状态失败:', error);
-                            this.systemStats.dify_api_status = '异常';
+                            this.systemStats.dify_api_status = '无响应';
                         });
                 },
                 restartWebPanel() {
